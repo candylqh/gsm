@@ -1,0 +1,3298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EquipTrack — Serviceability Dashboard</title>
+<!-- fonts/icons: offline — system stack + inline SVG sprites -->
+<style>
+/* ── PRIZM 3.0 — DARK THEME (MUI v6 base · DSTA Cheatsheet combo) ─────────────
+   Tokens repointed to PRIZM 3.0. Surfaces: grey-900 #121212 bg / grey-800
+   #1E1E1E surface. Primary: AI dark primary cyan #00DCFF. Elevation: MUI
+   stacked three-shadow. Radii: 4px MUI default. Statuses: PRIZM semantics,
+   tuned lighter for dark-mode legibility (MUI dark-theme practice). */
+:root {
+  /* Surface scale — PRIZM dark (grey-900 → elevation overlays) */
+  --md-bg:          #121212;   /* prizm grey-900 */
+  --md-surface:     #1E1E1E;   /* prizm grey-800 */
+  --md-surface2:    #242424;   /* +1 elevation overlay */
+  --md-surface3:    #2A2A2A;   /* inputs / +2 */
+  --md-surface4:    #333333;   /* hover / +3 */
+  --md-outline:     rgba(255,255,255,0.23);  /* MUI outlined border (dark) */
+  --md-outline-var: rgba(255,255,255,0.12);  /* MUI divider (dark) */
+
+  /* Primary — AI PRIZM dark primary (cyan/400) */
+  --md-primary:     #00DCFF;
+  --md-primary-dim: rgba(0,220,255,0.12);
+  --md-primary-con: #00404A;
+  --md-on-primary:  #00363D;
+
+  /* Typography — MUI text alphas on dark */
+  --md-text:        rgba(255,255,255,0.87);
+  --md-text-med:    rgba(255,255,255,0.60);
+  --md-text-low:    rgba(255,255,255,0.38);
+
+  /* Status palette — PRIZM semantic tokens (dark-tuned) */
+  --s-green:  #2BA84A;  --s-green-bg:  rgba(43,168,74,0.16);   /* success */
+  --s-yellow: #E7B400;  --s-yellow-bg: rgba(231,180,0,0.16);   /* warning */
+  --s-grey:   #90A4AE;  --s-grey-bg:   rgba(144,164,174,0.16); /* neutral */
+  --s-red:    #F35962;  --s-red-bg:    rgba(243,89,98,0.16);   /* error */
+  --s-black:  #9E9E9E;  --s-black-bg:  rgba(255,255,255,0.06);  --s-black-border: rgba(255,255,255,0.22);
+
+  --topnav-h: 52px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --mono: 'Consolas', 'SF Mono', 'Liberation Mono', monospace;
+  --radius: 4px;       /* PRIZM/MUI default corner */
+  /* MUI stacked elevation (PRIZM canonical) */
+  --elevation1: 0px 2px 1px -1px rgba(0,0,0,0.20), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
+  --elevation2: 0px 2px 4px -1px rgba(0,0,0,0.20), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12);
+  --elevation3: 0px 11px 15px -7px rgba(0,0,0,0.20), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--md-bg);
+  color: var(--md-text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── INLINE SVG ICONS — no CDN, works offline ── */
+.mi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  user-select: none;
+  font-size: 20px;   /* controls rendered size via em units */
+  line-height: 1;
+  flex-shrink: 0;
+}
+.mi svg { width: 1em; height: 1em; fill: currentColor; display: block; }
+.mi-sm { font-size: 16px; }
+.mi-xs { font-size: 14px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 3px; }
+
+/* ── TOP STATUS BAR ── */
+.topnav {
+  height: var(--topnav-h);
+  background: var(--md-surface);
+  border-bottom: 1px solid var(--md-outline-var);
+  display: flex;
+  align-items: center;
+  padding: 0;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: var(--elevation2);
+  flex-shrink: 0;
+  gap: 0;
+}
+
+/* Menu button — far left */
+.topnav-menu-btn {
+  width: 52px; height: var(--topnav-h);
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent;
+  cursor: pointer;
+  color: var(--md-text-med);
+  border-right: 1px solid var(--md-outline-var);
+  flex-shrink: 0;
+  transition: background .15s, color .15s;
+}
+.topnav-menu-btn:hover { background: rgba(255,255,255,.06); color: var(--md-primary); }
+.topnav-menu-btn .mi { font-size: 22px; }
+
+/* Logo */
+.topnav-logo {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px 0 14px;
+  border-right: 1px solid var(--md-outline-var);
+  height: 100%;
+  flex-shrink: 0;
+}
+.topnav-logo-icon {
+  width: 24px; height: 24px;
+  background: var(--md-primary);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+}
+.topnav-logo-icon .mi { font-size: 14px; color: var(--md-on-primary); }
+.topnav-logo-text {
+  font-size: 12px; font-weight: 700;
+  color: var(--md-text); letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* Status pills — centre-left area */
+.topnav-status {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px;
+  flex: 1;
+}
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: var(--radius);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  font-family: var(--mono); white-space: nowrap;
+}
+.status-pill .sp-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+/* Colour variants */
+.sp-online    { background: rgba(43,168,74,.16); color: #2BA84A; border: 1px solid rgba(43,168,74,.3); }
+.sp-online .sp-dot  { background: #2BA84A; box-shadow: 0 0 5px #2BA84A; }
+.sp-orange    { background: rgba(255,152,0,.18); color: #ffa726; border: 1px solid rgba(255,152,0,.35); }
+.sp-defcon    { background: rgba(0,220,255,.12); color: var(--md-primary); border: 1px solid rgba(0,220,255,.3); }
+.sp-defcon .defcon-num {
+  background: var(--md-primary); color: var(--md-on-primary);
+  font-weight: 900; font-size: 11px;
+  width: 17px; height: 17px; border-radius: 2px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sp-time      { background: transparent; color: var(--md-text-med); border: none; letter-spacing: .04em; }
+.sp-separator { width: 1px; height: 20px; background: var(--md-outline-var); margin: 0 2px; }
+
+/* Right side — role switcher + avatar */
+.topnav-right {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 14px;
+  border-left: 1px solid var(--md-outline-var);
+  height: 100%;
+  flex-shrink: 0;
+}
+.role-select-wrap {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,220,255,.08);
+  border: 1px solid rgba(0,220,255,.2);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+}
+.role-select-wrap select {
+  background: transparent; border: none;
+  color: var(--md-primary); font-size: 11px;
+  font-family: var(--mono); font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+  cursor: pointer; outline: none;
+}
+.role-select-wrap select option { background: #1a1a1a; }
+.topnav-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--md-primary-con);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--md-primary);
+  cursor: pointer; flex-shrink: 0;
+  border: 1.5px solid rgba(0,220,255,.4);
+}
+
+/* View toggle */
+.seg-btn-group {
+  display: flex;
+  border: 1px solid var(--md-outline);
+  border-radius: 4px; overflow: hidden;
+}
+.seg-btn {
+  padding: 5px 14px; font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .4px;
+  font-family: var(--font); border: none; background: transparent;
+  color: var(--md-text-med); cursor: pointer;
+  transition: all .15s; white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+}
+.seg-btn .mi { font-size: 15px; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--md-outline); }
+.seg-btn.active { background: var(--md-primary-dim); color: var(--md-primary); }
+
+/* ── SIDEBAR DRAWER ── */
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.55); z-index: 150;
+}
+.sidebar-overlay.open { display: block; }
+
+.sidebar {
+  width: 240px;
+  background: var(--md-surface);
+  border-right: 1px solid var(--md-outline-var);
+  display: flex; flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 160;
+  box-shadow: var(--elevation3);
+  transform: translateX(-100%);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+}
+.sidebar.open { transform: translateX(0); }
+
+.sidebar-header {
+  height: var(--topnav-h);
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--md-outline-var);
+  flex-shrink: 0;
+}
+.sidebar-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--md-text); text-transform: uppercase; letter-spacing: .06em;
+  flex: 1;
+}
+.sidebar-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--md-text-med); transition: background .15s;
+}
+.sidebar-close:hover { background: rgba(255,255,255,.08); }
+.sidebar-close .mi { font-size: 18px; }
+
+.sidebar-nav { padding: 8px; flex: 1; overflow-y: auto; }
+.nav-section-label {
+  font-size: 10px; font-weight: 600; color: var(--md-text-low);
+  text-transform: uppercase; letter-spacing: .12em;
+  padding: 10px 10px 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: var(--radius);
+  cursor: pointer; color: var(--md-text-med);
+  font-size: 14px; font-weight: 400;
+  transition: background .15s, color .15s;
+  margin-bottom: 1px;
+  border: none; background: transparent;
+  font-family: var(--font); width: 100%; text-align: left;
+}
+.nav-item .mi { font-size: 20px; flex-shrink: 0; }
+.nav-item:hover { background: rgba(255,255,255,.05); color: var(--md-text); }
+.nav-item.active { background: var(--md-primary-dim); color: var(--md-primary); font-weight: 500; }
+
+.sidebar-user {
+  padding: 12px 16px;
+  border-top: 1px solid var(--md-outline-var);
+  display: flex; align-items: center; gap: 10px;
+}
+.user-avatar-sm {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--md-primary-con);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--md-primary);
+  border: 1px solid rgba(0,220,255,.3); flex-shrink: 0;
+}
+.user-name  { font-size: 13px; font-weight: 500; color: var(--md-text); }
+.user-role  { font-size: 11px; color: var(--md-text-low); font-family: var(--mono); }
+
+/* ── SECONDARY BAR (filter + view toggle) ── */
+.secondary-bar {
+  height: 48px;
+  background: var(--md-surface2);
+  border-bottom: 1px solid var(--md-outline-var);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 10px;
+  position: sticky; top: var(--topnav-h); z-index: 90;
+  flex-shrink: 0;
+}
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; background: var(--md-bg); }
+#dashboardPage { display: flex; flex-direction: column; flex: 1; }
+
+/* ── FILTER BAR ── */
+.filter-bar {
+  background: var(--md-surface2);
+  border-bottom: 1px solid var(--md-outline-var);
+  padding: 0 24px;
+  height: 52px;
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: nowrap;
+  position: sticky;
+  top: 56px;
+  z-index: 40;
+}
+.filter-label {
+  font-size: 12px; font-weight: 500; color: var(--md-text-low);
+  text-transform: uppercase; letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+/* MD Outlined select */
+.md-select {
+  font-family: var(--font);
+  font-size: 13px;
+  background-color: var(--md-surface3);
+  border: 1px solid var(--md-outline);
+  border-radius: 4px;
+  color: var(--md-text);
+  padding: 6px 28px 6px 12px;
+  cursor: pointer;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--md-primary) 50%),
+    linear-gradient(135deg, var(--md-primary) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 50%, calc(100% - 11px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  transition: border-color .15s;
+}
+.md-select:focus { outline: none; border-color: var(--md-primary); }
+
+.filter-sep { width: 1px; height: 22px; background: var(--md-outline-var); }
+
+/* Depth chips */
+.chip-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--md-outline);
+  font-size: 12px; font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer; background: transparent;
+  color: var(--md-text-med);
+  transition: all .15s;
+  white-space: nowrap;
+}
+.chip:hover { background: rgba(255,255,255,.05); color: var(--md-text); }
+.chip.active { background: var(--md-primary-dim); color: var(--md-primary); border-color: var(--md-primary); }
+
+.md-btn-text {
+  font-family: var(--font);
+  font-size: 13px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .4px;
+  background: none; border: none;
+  color: var(--md-primary);
+  cursor: pointer; padding: 4px 8px;
+  border-radius: 4px;
+  transition: background .15s;
+}
+.md-btn-text:hover { background: var(--md-primary-dim); }
+
+/* ── CONTENT ── */
+.content { padding: 20px 24px; flex: 1; }
+
+/* ── STATUS BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 16px;
+  font-size: 12px; font-weight: 500;
+  font-family: var(--mono); white-space: nowrap;
+}
+.badge-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.badge.serviceable   { background: var(--s-green-bg);  color: var(--s-green);  }
+.badge.limitations   { background: var(--s-yellow-bg); color: var(--s-yellow); }
+.badge.maintenance   { background: var(--s-grey-bg);   color: var(--s-grey);   }
+.badge.unserviceable { background: var(--s-red-bg);    color: var(--s-red);    }
+.badge.attrited      { background: var(--s-black-bg);  color: var(--s-black); border: 1px solid var(--s-black-border); }
+.badge.serviceable   .badge-dot { background: var(--s-green);  }
+.badge.limitations   .badge-dot { background: var(--s-yellow); }
+.badge.maintenance   .badge-dot { background: var(--s-grey);   }
+.badge.unserviceable .badge-dot { background: var(--s-red);    }
+.badge.attrited      .badge-dot { background: #5A5A5A; }
+
+/* ── LEGEND ── */
+.legend-wrap {
+  display: flex; align-items: center;
+  margin-bottom: 18px;
+}
+.legend-info-btn {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid var(--md-outline);
+  background: transparent;
+  color: var(--md-text-low);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  font-family: serif;
+  transition: border-color .15s, color .15s;
+}
+.legend-info-btn:hover { border-color: var(--md-primary); color: var(--md-primary); }
+.legend-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: #ffffff;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  box-shadow: var(--elevation3);
+  z-index: 300;
+  min-width: 200px;
+  white-space: nowrap;
+}
+.legend-info-btn:hover .legend-tooltip { display: block; }
+.legend-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: #111;
+  padding: 4px 0;
+}
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── CUSTOMISE PANEL ── */
+.customise-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.customise-title { font-size: 13px; font-weight: 500; color: var(--md-text-med); text-transform: uppercase; letter-spacing: .08em; }
+
+.md-btn-outlined {
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .4px;
+  background: transparent; border: 1px solid var(--md-primary);
+  color: var(--md-primary); padding: 5px 14px; border-radius: var(--radius);
+  cursor: pointer; transition: background .15s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.md-btn-outlined:hover { background: var(--md-primary-dim); }
+.md-btn-filled {
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .4px;
+  background: var(--md-primary); border: 1px solid var(--md-primary);
+  color: #000; padding: 5px 16px; border-radius: var(--radius);
+  cursor: pointer; transition: filter .15s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.md-btn-filled:hover { filter: brightness(1.12); }
+
+/* ── MANAGE PREFERENCES MODAL ── */
+.pref-overlay {
+  display: none; position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+.pref-overlay.open { display: flex; }
+.pref-modal {
+  background: var(--md-surface); border: 1px solid var(--md-outline);
+  border-radius: 12px; width: min(900px, 96vw); max-height: 88vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.pref-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--md-outline);
+  background: var(--md-surface2); flex-shrink: 0;
+}
+.pref-header-left { display: flex; flex-direction: column; gap: 2px; }
+.pref-header-title { font-size: 15px; font-weight: 600; color: var(--md-text); }
+.pref-header-sub   { font-size: 11px; color: var(--md-text-low); }
+.pref-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--md-text-low); padding: 4px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .12s, background .12s;
+}
+.pref-close:hover { color: var(--md-text); background: var(--md-surface4); }
+.pref-columns {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  flex: 1; overflow: hidden; min-height: 0;
+}
+.pref-col {
+  display: flex; flex-direction: column; overflow: hidden;
+  border-right: 1px solid var(--md-outline);
+}
+.pref-col:last-child { border-right: none; }
+.pref-col-head {
+  padding: 10px 14px 8px; border-bottom: 1px solid var(--md-outline);
+  background: var(--md-surface2); flex-shrink: 0;
+}
+.pref-col-title {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.pref-col-name {
+  font-size: 10px; font-weight: 700; font-family: var(--mono);
+  text-transform: uppercase; letter-spacing: .1em; color: var(--md-primary);
+}
+.pref-col-count { font-size: 10px; color: var(--md-text-low); font-family: var(--mono); }
+.pref-col-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.pref-col-act {
+  font-size: 10px; font-weight: 500; color: var(--md-text-low);
+  background: none; border: 1px solid var(--md-outline);
+  border-radius: 3px; padding: 2px 7px; cursor: pointer;
+  transition: color .12s, border-color .12s;
+  font-family: var(--mono); letter-spacing: .03em;
+}
+.pref-col-act:hover { color: var(--md-primary); border-color: var(--md-primary); }
+.pref-search {
+  width: 100%; box-sizing: border-box;
+  background: var(--md-surface); border: 1px solid var(--md-outline);
+  border-radius: 4px; color: var(--md-text); font-size: 12px;
+  padding: 5px 8px; outline: none; font-family: var(--font);
+}
+.pref-search::placeholder { color: var(--md-text-low); }
+.pref-search:focus { border-color: var(--md-primary); }
+.pref-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+.pref-list::-webkit-scrollbar { width: 4px; }
+.pref-list::-webkit-scrollbar-track { background: transparent; }
+.pref-list::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 2px; }
+.pref-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; cursor: pointer; user-select: none;
+  transition: background .1s; font-size: 12px; color: var(--md-text-med);
+  border-left: 2px solid transparent;
+}
+.pref-item:hover { background: var(--md-surface2); color: var(--md-text); }
+.pref-item.active-parent { background: var(--md-surface2); color: var(--md-text); border-left-color: var(--md-primary); }
+.pref-item.selected { color: var(--md-primary); }
+.pref-check {
+  width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  border: 1.5px solid var(--md-outline); background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.pref-item.selected .pref-check { background: var(--md-primary); border-color: var(--md-primary); }
+.pref-check svg { width: 10px; height: 10px; fill: #000; display: none; }
+.pref-item.selected .pref-check svg { display: block; }
+.pref-item-label { flex: 1; line-height: 1.3; }
+.pref-item-sub { font-size: 10px; color: var(--md-text-low); display: block; }
+.pref-empty { padding: 20px 14px; font-size: 11px; color: var(--md-text-low); text-align: center; line-height: 1.5; }
+.pref-col-disabled .pref-col-head,
+.pref-col-disabled .pref-list { opacity: .4; pointer-events: none; }
+.pref-col-disabled .pref-col-name { color: var(--md-text-low); }
+.pref-tray {
+  border-top: 1px solid var(--md-outline); padding: 10px 16px;
+  background: var(--md-surface2); flex-shrink: 0; min-height: 48px;
+}
+.pref-tray-label {
+  font-size: 10px; font-weight: 600; font-family: var(--mono);
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--md-text-low); margin-bottom: 6px;
+}
+.pref-tray-chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 22px; }
+.pref-tray-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 12px; font-size: 11px;
+  border: 1px solid var(--md-outline); background: var(--md-surface);
+  color: var(--md-text-med);
+}
+.pref-tray-chip-tier {
+  font-size: 8px; font-weight: 700; font-family: var(--mono);
+  letter-spacing: .05em; padding: 1px 3px; border-radius: 2px;
+  background: var(--md-surface4); color: var(--md-text-low);
+}
+.pref-tray-chip-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--md-text-low); font-size: 13px; line-height: 1;
+  padding: 0; display: flex; align-items: center; transition: color .12s;
+}
+.pref-tray-chip-remove:hover { color: var(--s-red); }
+.pref-tray-empty { font-size: 11px; color: var(--md-text-low); font-style: italic; line-height: 22px; }
+.pref-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; border-top: 1px solid var(--md-outline);
+  background: var(--md-surface); flex-shrink: 0;
+}
+.pref-footer-info { font-size: 11px; color: var(--md-text-low); }
+
+/* ── DASHBOARD CARDS GRID ── */
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px,1fr)); gap: 14px; }
+
+/* MD Elevated Card */
+.dash-card {
+  background: var(--md-surface);
+  border: 1px solid var(--md-outline-var);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--elevation1);
+  transition: box-shadow .2s, transform .15s;
+}
+.dash-card:hover { box-shadow: var(--elevation2); transform: translateY(-1px); }
+
+.dash-card-header {
+  padding: 14px 16px 10px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+}
+.card-name { font-size: 15px; font-weight: 500; color: var(--md-text); }
+.card-meta { font-size: 11px; color: var(--md-text-low); margin-top: 2px; }
+
+.dash-card-stats {
+  padding: 8px 16px 14px;
+  display: flex; align-items: baseline; gap: 8px;
+}
+.stat-num {
+  font-family: var(--mono); font-size: 26px; font-weight: 500;
+  color: var(--md-text); line-height: 1;
+}
+.stat-den { font-size: 14px; color: var(--md-text-low); }
+.stat-label { font-size: 11px; color: var(--md-text-low); margin-top: 2px; }
+.stat-sep { display: none; }
+.stat-pct { font-family: var(--mono); font-size: 16px; font-weight: 400; line-height: 1; }
+
+.status-strip { height: 4px; display: flex; }
+.strip-seg { height: 100%; }
+
+/* ── TABLE ── */
+/* table-wrap removed — using AG Grid */
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+
+/* Column widths */
+col.col-name    { width: 35%; }
+col.col-status  { width: 15%; }
+col.col-updated { width: 15%; }
+col.col-remarks { width: 25%; }
+col.col-actions { width: 10%; }
+
+thead th {
+  padding: 11px 10px;
+  font-size: 11px; font-weight: 500;
+  font-family: var(--mono);
+  color: var(--md-text-low);
+  text-transform: uppercase; letter-spacing: .08em;
+  text-align: left;
+  background: var(--md-surface2);
+  border-bottom: 1px solid var(--md-outline-var);
+  position: sticky; top: 100px; z-index: 10;
+  white-space: nowrap;
+}
+thead th:first-child { border-radius: var(--radius) 0 0 0; }
+thead th:last-child  { border-radius: 0 var(--radius) 0 0; }
+
+tbody tr {
+  border-bottom: 1px solid var(--md-outline-var);
+  transition: background .12s; cursor: pointer;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,.04); }
+
+td { padding: 8px 10px; color: var(--md-text); vertical-align: middle; overflow: hidden; }
+
+.t1-row td { background: var(--md-surface2); font-weight: 500; border-top: 6px solid var(--md-bg); }
+.t1-row:first-child td { border-top: none; }
+.t1-row td:first-child { border-left: 3px solid var(--md-primary); }
+.t1-row:hover td { background: rgba(0,220,255,.06) !important; }
+
+.t2-row td { background: transparent; }
+.t2-row td:first-child { padding-left: 16px; }
+
+.t3-row td { background: transparent; }
+.t3-row td:first-child { padding-left: 16px; }
+
+.name-cell { display: flex; align-items: center; gap: 0; }
+.tree-indent { display: flex; align-items: center; flex-shrink: 0; }
+
+.t2-row .tree-indent { width: 28px; position: relative; }
+.t2-row .tree-indent::before { content:''; position:absolute; left:12px; top:-12px; width:1px; height:calc(100% + 12px); background:var(--md-outline); }
+.t2-row .tree-indent::after  { content:''; position:absolute; left:12px; top:50%; width:12px; height:1px; background:var(--md-outline); }
+
+.t3-row .tree-indent { width: 52px; position: relative; }
+.t3-row .tree-indent::before { content:''; position:absolute; left:28px; top:-12px; width:1px; height:calc(100% + 12px); background:var(--md-outline); }
+.t3-row .tree-indent::after  { content:''; position:absolute; left:28px; top:50%; width:12px; height:1px; background:var(--md-outline); }
+
+.tier-badge { display:inline-flex; align-items:center; font-size:9px; font-weight:600; font-family:var(--mono); padding:2px 6px; border-radius:4px; margin-right:7px; flex-shrink:0; text-transform:uppercase; letter-spacing:.06em; }
+.tier-badge.t1 { background: rgba(0,220,255,.18); color: var(--md-primary); }
+.tier-badge.t2 { background: rgba(255,255,255,.07); color: var(--md-text-med); }
+.tier-badge.t3 { background: rgba(255,255,255,.04); color: var(--md-text-low); }
+
+.name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts { font-family: var(--mono); font-size: 11px; color: var(--md-text-low); }
+.cell-null { color: var(--md-text-low); font-size: 12px; font-style: italic; }
+
+.remark-preview { font-size:12px; color:var(--md-text-med); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.remarks-count-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--md-text-low); background:rgba(255,255,255,.06); border-radius:4px; padding:2px 8px; cursor:pointer; transition:background .12s; }
+.remarks-count-badge:hover { background:rgba(255,255,255,.10); color:var(--md-text-med); }
+
+.md-btn-sm { font-family:var(--font); font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:.4px; background:transparent; border:1px solid var(--md-outline); color:var(--md-primary); padding:4px 12px; border-radius:var(--radius); cursor:pointer; transition:all .15s; white-space:nowrap; }
+.md-btn-sm:hover { background: var(--md-primary-dim); border-color: var(--md-primary); }
+
+
+.table-remarks-list { }
+.table-remark-item { display:flex; align-items:flex-start; gap:6px; font-size:11px; color:var(--md-text-med); margin-top:3px; }
+.table-remark-item:first-child { margin-top:0; }
+.table-remark-num { font-family:var(--mono); font-size:10px; color:var(--md-text-low); background:rgba(255,255,255,.06); border-radius:4px; padding:1px 5px; flex-shrink:0; margin-top:1px; }
+
+/* Inline remarks in table */
+.table-remarks-list { margin-top: 4px; }
+.table-remark-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--md-text-med); margin-top: 2px;
+}
+.table-remark-num {
+  font-family: var(--mono); font-size: 10px; color: var(--md-text-low);
+  background: rgba(255,255,255,.06); border-radius: 4px;
+  padding: 1px 5px; flex-shrink: 0;
+}
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--md-surface);
+  border-radius: var(--radius);
+  width: 480px; max-width: 95vw; max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--elevation3);
+  border: 1px solid var(--md-outline-var);
+  animation: mdIn .2s cubic-bezier(.4,0,.2,1);
+}
+@keyframes mdIn {
+  from { opacity:0; transform:translateY(16px) scale(.97); }
+  to   { opacity:1; transform:translateY(0)   scale(1);    }
+}
+
+.modal-header {
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--md-outline-var);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.modal-title    { font-size: 18px; font-weight: 500; color: var(--md-text); }
+.modal-subtitle { font-size: 12px; color: var(--md-text-low); margin-top: 3px; font-family: var(--mono); }
+.modal-close {
+  background: none; border: none; color: var(--md-text-low);
+  font-size: 20px; cursor: pointer; padding: 0 2px; line-height: 1;
+  border-radius: 50%; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+}
+.modal-close:hover { background: rgba(255,255,255,.08); color: var(--md-text); }
+
+.modal-body { padding: 18px 22px; }
+
+.form-label {
+  display: block; font-size: 11px; font-weight: 500;
+  color: var(--md-text-low); text-transform: uppercase;
+  letter-spacing: .09em; margin-bottom: 10px;
+  font-family: var(--mono);
+}
+.req { color: var(--s-red); margin-left: 2px; }
+
+/* Status options — MD List style */
+.status-options { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+.status-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--radius);
+  border: 1px solid var(--md-outline-var);
+  cursor: pointer; transition: all .15s;
+  position: relative;
+}
+.status-opt:hover { background: rgba(255,255,255,.04); border-color: var(--md-outline); }
+.status-opt.selected { border-width: 2px; }
+.status-opt.selected.serviceable   { border-color: var(--s-green);  background: var(--s-green-bg);  }
+.status-opt.selected.limitations   { border-color: var(--s-yellow); background: var(--s-yellow-bg); }
+.status-opt.selected.maintenance   { border-color: var(--s-grey);   background: var(--s-grey-bg);   }
+.status-opt.selected.unserviceable { border-color: var(--s-red);    background: var(--s-red-bg);    }
+.status-opt.selected.attrited      { border-color: var(--s-black);  background: var(--s-black-bg);  }
+
+.status-swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.status-opt-body { flex: 1; }
+.status-opt-label { font-size: 13px; font-weight: 500; color: var(--md-text); }
+.status-opt-desc  { font-size: 11px; color: var(--md-text-low); margin-top: 1px; }
+.status-opt-check {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--md-outline);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .15s;
+}
+.status-opt.selected .status-opt-check {
+  border-color: currentColor;
+  background: currentColor;
+}
+.status-opt.selected.serviceable   .status-opt-check { color: var(--s-green);  }
+.status-opt.selected.limitations   .status-opt-check { color: var(--s-yellow); }
+.status-opt.selected.maintenance   .status-opt-check { color: var(--s-grey);   }
+.status-opt.selected.unserviceable .status-opt-check { color: var(--s-red);    }
+.status-opt.selected.attrited      .status-opt-check { color: var(--s-black);  }
+.check-inner { width: 6px; height: 6px; border-radius: 50%; background: var(--md-surface); }
+
+/* Defect remarks */
+.remarks-section { margin-top: 4px; }
+.remark-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-bottom: 8px;
+}
+.remark-label {
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  color: var(--md-text-low); padding-top: 10px;
+  min-width: 72px; white-space: nowrap;
+}
+.remark-label span { color: var(--md-primary); }
+
+.remark-input {
+  flex: 1;
+  background: var(--md-surface3);
+  border: 1px solid var(--md-outline);
+  border-radius: 4px;
+  color: var(--md-text);
+  font-family: var(--font); font-size: 13px;
+  padding: 8px 10px;
+  resize: vertical; min-height: 52px;
+  transition: border-color .15s;
+}
+.remark-input:focus { outline: none; border-color: var(--md-primary); }
+.remark-input::placeholder { color: var(--md-text-low); }
+
+.remark-remove {
+  background: none; border: none; color: var(--md-text-low);
+  cursor: pointer; padding: 8px 4px; font-size: 18px; line-height: 1;
+  border-radius: 50%; transition: color .12s; flex-shrink: 0;
+}
+.remark-remove:hover { color: var(--s-red); }
+
+/* ── ETR: Has ETR? Yes/No radio ── */
+.etr-has-row {
+  display: flex; align-items: center; gap: 0;
+  margin-top: 8px;
+  background: var(--md-surface); border: 1px solid var(--md-outline);
+  border-radius: 4px; overflow: hidden; width: fit-content;
+}
+.etr-has-label {
+  font-size: 10px; font-weight: 600; font-family: var(--mono);
+  color: var(--md-text-low); text-transform: uppercase; letter-spacing: .08em;
+  padding: 5px 10px; border-right: 1px solid var(--md-outline);
+  background: var(--md-surface2); white-space: nowrap; flex-shrink: 0;
+}
+.etr-opt {
+  padding: 5px 14px; font-size: 12px; font-weight: 500;
+  color: var(--md-text-low); cursor: pointer; user-select: none;
+  transition: background .12s, color .12s;
+}
+.etr-opt + .etr-opt { border-left: 1px solid var(--md-outline); }
+.etr-opt.active-no  { background: rgba(255,255,255,.05); color: var(--md-text-med); }
+.etr-opt.active-yes { background: rgba(0,220,255,.12); color: var(--md-primary); font-weight: 600; }
+
+.etr-picker {
+  display: none; align-items: center; gap: 8px;
+  margin-top: 6px; padding: 8px 10px;
+  background: var(--md-surface); border: 1px solid var(--md-outline);
+  border-radius: 6px;
+}
+.etr-picker.open { display: flex; }
+.etr-label {
+  font-size: 10px; font-weight: 600; font-family: var(--mono);
+  color: var(--md-primary); text-transform: uppercase;
+  letter-spacing: .08em; white-space: nowrap; flex-shrink: 0;
+}
+.etr-input {
+  flex: 1; background: transparent; border: none;
+  color: var(--md-text); font-size: 12px; font-family: var(--mono);
+  outline: none; cursor: pointer; min-width: 0;
+}
+.etr-input::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+
+.etr-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-family: var(--mono); font-weight: 500;
+  background: rgba(0,229,255,.10); color: var(--md-primary);
+  border: 1px solid rgba(0,229,255,.25); border-radius: 4px;
+  padding: 2px 7px; margin-top: 4px; letter-spacing: .03em;
+}
+.etr-pill .mi { font-size: 12px; }
+
+.add-remark-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 8px;
+  background: transparent;
+  border: 1px dashed var(--md-outline);
+  border-radius: var(--radius);
+  color: var(--md-text-low); font-size: 12px; font-weight: 500;
+  font-family: var(--font); cursor: pointer;
+  transition: all .15s; margin-top: 4px;
+}
+.add-remark-btn:hover { border-color: var(--md-primary); color: var(--md-primary); background: var(--md-primary-dim); }
+
+.validation-msg {
+  display: none; align-items: center; gap: 6px;
+  background: var(--s-red-bg); border: 1px solid var(--s-red);
+  color: var(--s-red); border-radius: var(--radius);
+  padding: 8px 12px; font-size: 12px; margin-top: 10px;
+}
+
+.modal-footer {
+  padding: 12px 22px 18px;
+  display: flex; justify-content: flex-end; gap: 8px;
+  border-top: 1px solid var(--md-outline-var);
+}
+.md-btn {
+  font-family: var(--font); font-size: 14px; font-weight: 500;
+  padding: 8px 22px; border-radius: var(--radius); cursor: pointer;
+  border: none; transition: all .15s; letter-spacing: .4px; text-transform: uppercase;
+}
+.md-btn.filled { background: var(--md-primary); color: var(--md-on-primary); }
+.md-btn.filled:hover { opacity: .88; }
+.md-btn.tonal  { background: rgba(255,255,255,.08); color: var(--md-text-med); }
+.md-btn.tonal:hover { background: rgba(255,255,255,.12); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--md-surface3);
+  color: var(--md-text); border-radius: var(--radius);
+  padding: 10px 20px; font-size: 13px; font-weight: 500;
+  box-shadow: var(--elevation3);
+  opacity: 0; transition: all .25s; z-index: 999; pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+  border-left: 3px solid var(--s-green);
+  min-width: 240px; max-width: 380px;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center; padding: 60px 24px;
+  color: var(--md-text-low);
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; line-height:1; color:var(--md-text-low); display:flex; justify-content:center; }
+.empty-text { font-size: 14px; }
+
+/* ── CATEGORIES PAGE ── */
+/* categoriesPage visibility controlled by inline style via JS */
+
+.page-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:20px; gap:12px; flex-wrap:wrap;
+}
+.page-title { font-size:20px; font-weight:500; color:var(--md-text); }
+.page-subtitle { font-size:12px; color:var(--md-text-low); margin-top:2px; }
+
+.cat-accordion {
+  background:var(--md-surface);
+  border:1px solid var(--md-outline-var);
+  border-radius:var(--radius);
+  margin-bottom:12px;
+  overflow:hidden;
+  transition:box-shadow .15s;
+}
+.cat-accordion:hover { box-shadow:var(--elevation1); }
+
+.cat-row {
+  display:flex; align-items:center; gap:10px;
+  padding:14px 16px;
+  cursor:pointer;
+  user-select:none;
+}
+.cat-row:hover { background:rgba(255,255,255,.03); }
+.cat-chevron {
+  font-size:18px; color:var(--md-text-low);
+  transition:transform .2s;
+  flex-shrink:0;
+}
+.cat-chevron.open { transform:rotate(90deg); }
+.cat-name { font-size:15px; font-weight:500; color:var(--md-text); flex:1; }
+.cat-meta { font-size:12px; color:var(--md-text-low); }
+
+.cat-actions { display:flex; gap:6px; flex-shrink:0; }
+
+.icon-btn {
+  width:32px; height:32px; border-radius:50%;
+  border:none; background:transparent;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:15px; transition:background .15s; color:var(--md-text-med);
+}
+.icon-btn:hover { background:rgba(255,255,255,.08); }
+.icon-btn.danger:hover { background:rgba(239,83,80,.12); color:var(--s-red); }
+
+.model-section {
+  border-top:1px solid var(--md-outline-var);
+  padding:8px 12px 12px 36px;
+  display:none;
+}
+.model-section.open { display:block; }
+
+.model-section-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:8px;
+}
+.model-section-label {
+  font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.08em; color:var(--md-text-low);
+}
+
+.model-item {
+  background:var(--md-surface2);
+  border:1px solid var(--md-outline-var);
+  border-radius:var(--radius);
+  margin-bottom:8px;
+  overflow:hidden;
+}
+
+.model-row-crud {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  cursor:pointer;
+}
+.model-row-crud:hover { background:rgba(255,255,255,.03); }
+.model-chevron {
+  font-size:18px; color:var(--md-text-low);
+  transition:transform .2s; flex-shrink:0;
+}
+.model-chevron.open { transform:rotate(90deg); }
+.model-name-crud { font-size:13px; font-weight:500; flex:1; }
+.model-meta-crud { font-size:11px; color:var(--md-text-low); font-family:var(--mono); }
+
+.sub-section {
+  border-top:1px solid var(--md-outline-var);
+  padding:8px 12px 10px 24px;
+  display:none;
+}
+.sub-section.open { display:block; }
+.sub-section-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:6px;
+}
+.sub-section-label {
+  font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.08em; color:var(--md-text-low);
+}
+
+.sub-item {
+  display:flex; align-items:center; gap:8px;
+  padding:7px 10px;
+  border-radius:var(--radius);
+  transition:background .12s;
+}
+.sub-item:hover { background:rgba(255,255,255,.04); }
+.sub-item-name { font-size:12px; color:var(--md-text-med); flex:1; }
+
+.add-inline-row {
+  display:flex; align-items:center; gap:8px;
+  margin-top:8px;
+}
+.add-inline-input {
+  flex:1; background:var(--md-surface3);
+  border:1px solid var(--md-outline);
+  border-radius:var(--radius); color:var(--md-text);
+  font-size:13px; font-family:var(--font);
+  padding:7px 10px; outline:none;
+  transition:border-color .15s;
+}
+.add-inline-input:focus { border-color:var(--md-primary); }
+.add-inline-input::placeholder { color:var(--md-text-low); }
+.add-inline-btn {
+  background:var(--md-primary); color:var(--md-on-primary);
+  border:none; border-radius:var(--radius);
+  font-size:12px; font-weight:500; font-family:var(--font);
+  text-transform:uppercase; letter-spacing:.4px;
+  padding:7px 14px; cursor:pointer; white-space:nowrap;
+  transition:opacity .15s;
+}
+.add-inline-btn:hover { opacity:.88; }
+.add-inline-cancel {
+  background:none; border:none; color:var(--md-text-low);
+  font-size:12px; cursor:pointer; padding:4px 6px;
+  border-radius:4px; font-family:var(--font);
+  transition:color .15s;
+}
+.add-inline-cancel:hover { color:var(--md-text); }
+
+/* Confirm delete dialog */
+.confirm-overlay {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.55); z-index:300;
+  align-items:center; justify-content:center;
+}
+.confirm-overlay.open { display:flex; }
+.confirm-box {
+  background:var(--md-surface3);
+  border-radius:var(--radius);
+  padding:24px;
+  width:360px; max-width:92vw;
+  box-shadow:var(--elevation3);
+  animation:mdIn .18s ease;
+}
+.confirm-title { font-size:17px; font-weight:500; margin-bottom:8px; }
+.confirm-body  { font-size:13px; color:var(--md-text-med); margin-bottom:20px; line-height:1.5; }
+.confirm-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+/* Inline edit input */
+.edit-inline-input {
+  background:var(--md-surface3);
+  border:1px solid var(--md-primary);
+  border-radius:var(--radius); color:var(--md-text);
+  font-size:13px; font-family:var(--font);
+  padding:5px 9px; outline:none;
+  min-width:140px;
+}
+
+/* ── RECORD GRID (Table-view CRUD) ─────────────────────────────────── */
+.table-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.table-records-meta { font-size:12px; color:var(--md-text-low); font-family:var(--mono); letter-spacing:.04em; }
+
+.grid-select, .grid-input {
+  width:100%; background-color:transparent;
+  border:1px solid transparent; border-radius:var(--radius);
+  color:var(--md-text); font-family:var(--font); font-size:12px;
+  padding:5px 6px; transition:border-color .12s, background-color .12s;
+}
+.grid-input { cursor:text; }
+.grid-input::placeholder { color:var(--md-text-low); }
+.grid-select {
+  cursor:pointer; appearance:none; padding-right:18px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--md-text-med) 50%),
+    linear-gradient(135deg, var(--md-text-med) 50%, transparent 50%);
+  background-position: calc(100% - 10px) 55%, calc(100% - 6px) 55%;
+  background-size: 4px 4px, 4px 4px; background-repeat:no-repeat;
+}
+.grid-select:hover, .grid-input:hover { border-color:var(--md-outline-var); background-color:var(--md-surface2); }
+.grid-select:focus, .grid-input:focus { outline:none; border-color:var(--md-primary); background-color:var(--md-surface2); }
+.grid-select option { background:var(--md-surface3); color:var(--md-text); }
+
+.rec-row td { vertical-align:middle; }
+.rec-row:hover { background:rgba(255,255,255,.03); }
+.rec-cat   { font-weight:500; color:var(--md-text); }
+.rec-model { color:var(--md-text-med); }
+.rec-sub   { color:var(--md-text); font-weight:500; }
+.status-cell { cursor:pointer; display:inline-flex; }
+.rec-actions { display:flex; gap:2px; }
+
+/* Add-record form */
+/* ── ADD RECORD MODAL ── */
+.ar-overlay {
+  display: none; position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+.ar-overlay.open { display: flex; }
+.ar-modal {
+  background: var(--md-surface); border: 1px solid var(--md-outline);
+  border-radius: 12px; width: min(680px, 96vw);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.ar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--md-outline);
+  background: var(--md-surface2); flex-shrink: 0;
+}
+.ar-header-left { display: flex; flex-direction: column; gap: 2px; }
+.ar-header-title { font-size: 15px; font-weight: 600; color: var(--md-text); }
+.ar-header-sub   { font-size: 11px; color: var(--md-text-low); }
+.ar-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--md-text-low); padding: 4px; border-radius: 4px;
+  display: flex; align-items: center; transition: color .12s, background .12s;
+}
+.ar-close:hover { color: var(--md-text); background: var(--md-surface4); }
+.ar-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+.ar-section-label {
+  font-size: 10px; font-weight: 700; font-family: var(--mono);
+  text-transform: uppercase; letter-spacing: .1em; color: var(--md-primary);
+  margin-bottom: 10px;
+}
+.ar-row { display: grid; gap: 14px; }
+.ar-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+.ar-row-4 { grid-template-columns: 1fr 1fr 1fr 80px; }
+.ar-row-2 { grid-template-columns: 1fr 1fr; }
+.ar-field { display: flex; flex-direction: column; gap: 5px; }
+.ar-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--md-text-low); font-family: var(--mono);
+}
+.ar-label .ar-req { color: var(--md-primary); margin-left: 1px; }
+.ar-input, .ar-select {
+  font-family: var(--font); font-size: 13px;
+  background: var(--md-surface3); border: 1px solid var(--md-outline);
+  border-radius: var(--radius); color: var(--md-text);
+  padding: 8px 11px; outline: none; transition: border-color .12s;
+  width: 100%; box-sizing: border-box;
+}
+.ar-input:focus, .ar-select:focus { border-color: var(--md-primary); }
+.ar-input.error, .ar-select.error { border-color: var(--s-red); }
+.ar-input::placeholder { color: var(--md-text-low); }
+.ar-select {
+  appearance: none; cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--md-primary) 50%),
+    linear-gradient(135deg, var(--md-primary) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 55%, calc(100% - 10px) 55%;
+  background-size: 4px 4px, 4px 4px; background-repeat: no-repeat;
+  padding-right: 28px;
+}
+.ar-select option { background: var(--md-surface3); }
+.ar-divider { border: none; border-top: 1px solid var(--md-outline); margin: 0; }
+.ar-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 14px 20px; border-top: 1px solid var(--md-outline);
+  background: var(--md-surface2);
+}
+
+/* ── MASTER LISTS (Sub-item Management) ─────────────────────────── */
+.sim-grid { display:grid; grid-template-columns: minmax(0,1fr) 320px; gap:24px; align-items:start; }
+.sim-section-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--md-text-low); margin-bottom:12px; }
+.master-panel { background:var(--md-surface); border:1px solid var(--md-outline-var); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; }
+.master-panel-head { display:flex; align-items:center; justify-content:space-between; padding:10px 8px 10px 14px; background:var(--md-surface2); border-bottom:1px solid var(--md-outline-var); }
+.master-panel-title { font-size:13px; font-weight:500; color:var(--md-text); display:flex; align-items:center; gap:8px; }
+.master-count { font-family:var(--mono); font-size:11px; color:var(--md-text-low); background:rgba(255,255,255,.06); border-radius:var(--radius); padding:1px 7px; }
+.master-list { padding:6px; }
+.master-item { display:flex; align-items:center; gap:8px; padding:6px 6px 6px 10px; border-radius:var(--radius); transition:background .12s; }
+.master-item:hover { background:rgba(255,255,255,.04); }
+.master-item-name { flex:1; font-size:13px; color:var(--md-text); }
+.master-item-actions { display:flex; gap:2px; }
+.master-empty { font-size:12px; color:var(--md-text-low); font-style:italic; padding:6px 10px; }
+@media (max-width:900px){ .sim-grid { grid-template-columns:1fr; } }
+</style>
+
+<style>
+/* ── AG GRID DARK THEME OVERRIDES ── */
+.ag-theme-alpine-dark {
+  --ag-background-color: var(--md-surface);
+  --ag-odd-row-background-color: var(--md-surface2);
+  --ag-header-background-color: var(--md-surface2);
+  --ag-border-color: var(--md-outline);
+  --ag-secondary-border-color: var(--md-outline);
+  --ag-row-border-color: var(--md-outline);
+  --ag-foreground-color: var(--md-text);
+  --ag-secondary-foreground-color: var(--md-text-med);
+  --ag-header-foreground-color: var(--md-primary);
+  --ag-row-hover-color: rgba(255,255,255,.04);
+  --ag-selected-row-background-color: rgba(0,220,255,.08);
+  --ag-font-family: var(--font);
+  --ag-font-size: 12px;
+  --ag-grid-size: 4px;
+  --ag-row-height: 40px;
+  --ag-header-height: 38px;
+  --ag-cell-horizontal-padding: 12px;
+  --ag-range-selection-border-color: var(--md-primary);
+  --ag-input-focus-border-color: var(--md-primary);
+  --ag-icon-font-family: none;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--md-outline);
+}
+.ag-theme-alpine-dark .ag-header-cell-text {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+}
+.ag-theme-alpine-dark .ag-cell {
+  display: flex; align-items: center;
+}
+.ag-theme-alpine-dark .ag-header { border-bottom: 1px solid var(--md-outline); }
+.ag-theme-alpine-dark .ag-row { border-bottom: 1px solid var(--md-outline); }
+.ag-theme-alpine-dark .ag-root-wrapper { border: none; }
+.ag-theme-alpine-dark .ag-icon { display: none; }
+</style></head>
+<body>
+
+<!-- SIDEBAR OVERLAY + DRAWER -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="topnav-logo-icon" style="width:22px;height:22px;border-radius:3px;background:var(--md-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <span class="mi" style="font-size:13px;color:var(--md-on-primary)"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
+    </div>
+    <span class="sidebar-title">EquipTrack</span>
+    <button class="sidebar-close" onclick="closeSidebar()"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span></button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Monitor</div>
+    <button class="nav-item active" id="nav-dashboard" onclick="navigateTo('dashboard',this)">
+      <span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></span> Dashboard
+    </button>
+    <button class="nav-item" id="nav-equipment" onclick="navigateTo('dashboard',this)">
+      <span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.72V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.72c.57-.38 1-.99 1-1.71V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-8H4V4h16v2z"/></svg></span> All Equipment
+    </button>
+    <div class="nav-section-label">Manage</div>
+    <button class="nav-item" id="nav-categories" onclick="navigateTo('categories',this)">
+      <span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3h7zM7 9H4V5h3v4zm10 6h3v4h-3v-4zm0-10h3v4h-3V5z"/></svg></span> Sub-item Management
+    </button>
+
+    <button class="nav-item" onclick="closeSidebar();showToast('Settings — Phase 2')">
+      <span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.01 7.01 0 0 0-1.62-.94l-.36-2.54A.484.484 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span> Settings
+    </button>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar-sm" id="sidebarAvatar">SA</div>
+    <div>
+      <div class="user-name" id="sidebarUserName">Super Admin</div>
+      <div class="user-role" id="sidebarUserRole">super_admin</div>
+    </div>
+  </div>
+</aside>
+
+<!-- TOP STATUS BAR -->
+<nav class="topnav">
+
+  <!-- Menu button -->
+  <button class="topnav-menu-btn" onclick="toggleSidebar()" title="Menu">
+    <span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></span>
+  </button>
+
+  <!-- Logo -->
+  <div class="topnav-logo">
+    <div class="topnav-logo-icon"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span></div>
+    <span class="topnav-logo-text">EquipTrack</span>
+  </div>
+
+  <!-- Status pills -->
+  <div class="topnav-status">
+    <span class="status-pill sp-online">
+      <span class="sp-dot"></span>Online
+    </span>
+    <div class="sp-separator"></div>
+    <span class="status-pill sp-orange">
+      THREATCON &nbsp;<strong>ORANGE</strong>
+    </span>
+    <div class="sp-separator"></div>
+    <span class="status-pill sp-defcon">
+      DEFCON &nbsp;<span class="defcon-num">4</span>
+    </span>
+    <div class="sp-separator"></div>
+    <span class="status-pill sp-time" id="clockPill"></span>
+  </div>
+
+  <!-- Right: role switcher + avatar -->
+  <div class="topnav-right">
+    <div class="role-select-wrap">
+      <span class="mi" style="font-size:14px;color:var(--md-primary)"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 18v-.65c0-.34.16-.66.41-.86C5.56 15.72 7.45 15 10 15c.65 0 1.26.08 1.83.21-.21.71-.33 1.46-.33 2.29v.5H4zm8.92-4.23c.05.33.08.67.08 1.02 0 .34-.03.67-.07.99l-1.08.84c-.1.08-.14.21-.1.33l1.02 1.77c.06.11.19.15.31.11l1.27-.51c.27.2.56.39.87.53l.19 1.35c.02.14.14.24.28.24h2.04c.14 0 .26-.1.28-.24l.19-1.35c.31-.14.59-.32.87-.53l1.27.51c.13.05.26 0 .31-.11l1.02-1.77c.06-.12.03-.25-.1-.33l-1.08-.84c.05-.32.07-.66.07-1 0-.33-.03-.67-.07-.99l1.08-.84c.1-.08.14-.21.1-.33l-1.02-1.77a.236.236 0 0 0-.31-.11l-1.27.51a3.9 3.9 0 0 0-.87-.53l-.19-1.35A.275.275 0 0 0 17.68 9h-2.04c-.14 0-.26.1-.28.24l-.19 1.35c-.31.14-.59.32-.87.53l-1.27-.51a.236.236 0 0 0-.31.11l-1.02 1.77c-.06.12-.03.25.1.33l1.12.84zM16.66 15c-.74 0-1.34-.6-1.34-1.34s.6-1.34 1.34-1.34 1.34.6 1.34 1.34S17.4 15 16.66 15zM10 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg></span>
+      <select onchange="switchRole(this.value)" id="roleSelect">
+        <option value="admin">Super Admin</option>
+        <option value="ground_phones">Personnel A</option>
+        <option value="ground_laptops">Personnel B</option>
+      </select>
+    </div>
+    <div class="topnav-avatar" id="userAvatar">SA</div>
+  </div>
+</nav>
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SECONDARY BAR: filter + view toggle -->
+  <div id="dashboardPage">
+  <div class="secondary-bar">
+    <span class="filter-label">Filter</span>
+
+    <select class="md-select" id="filterCategory" onchange="applyFilter()">
+      <option value="all">All Categories</option>
+      <option value="phones">Phones</option>
+      <option value="laptops">Laptops</option>
+      <option value="radios">Radios</option>
+    </select>
+
+    <div class="filter-sep"></div>
+
+    <span id="depthControl" style="display:flex;align-items:center;gap:10px;">
+      <span class="filter-label">Depth</span>
+      <div class="chip-group">
+        <button class="chip" id="d1" onclick="setDepth(1)">Category only</button>
+        <button class="chip active" id="d2" onclick="setDepth(2)">+ Model</button>
+        <button class="chip" id="d3" onclick="setDepth(3)">+ Sub-component</button>
+      </div>
+      <div class="filter-sep"></div>
+    </span>
+
+    <button class="md-btn-text" onclick="clearFilters()">Clear</button>
+
+    <div style="margin-left:auto">
+      <div class="seg-btn-group">
+        <button class="seg-btn active" id="btnSummary" onclick="setView('summary')"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg></span> Summary</button>
+        <button class="seg-btn" id="btnTable" onclick="setView('table')"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 8H3V4h18v4zm0 2H3v4h18v-4zm0 6H3v4h18v-4z"/></svg></span> Table</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- LEGEND -->
+    <div class="legend-wrap">
+      <button class="legend-info-btn" tabindex="0">
+        i
+        <div class="legend-tooltip">
+          <div class="legend-item"><div class="legend-dot" style="background:#2BA84A"></div>Serviceable — ready for use</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#E7B400"></div>Limitations — usable with defects</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#90A4AE"></div>Under Maintenance — being repaired</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#F35962"></div>Unserviceable — cannot be used</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#5A5A5A;border:1px solid #777;"></div>Attrited — beyond repair</div>
+        </div>
+      </button>
+    </div>
+
+    <!-- SUMMARY VIEW -->
+    <div id="summaryView">
+
+      <!-- MANAGE PREFERENCES -->
+      <div class="customise-row">
+        <span class="customise-title">Dashboard Tiles</span>
+        <button class="md-btn-outlined" onclick="openPrefModal()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></span> Manage Preferences</button>
+      </div>
+
+      <!-- PREFERENCES MODAL -->
+      <div class="pref-overlay" id="prefOverlay" onclick="handleOverlayClick(event)">
+        <div class="pref-modal" id="prefModal">
+
+          <!-- Header -->
+          <div class="pref-header">
+            <div class="pref-header-left">
+              <span class="pref-header-title">Manage Dashboard Preferences</span>
+              <span class="pref-header-sub">Select items from any tier to display as summary tiles</span>
+            </div>
+            <button class="pref-close" onclick="closePrefModal()" title="Close"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span></button>
+          </div>
+
+          <!-- Three-column picker -->
+          <div class="pref-columns" id="prefColumns">
+            <!-- Col 1: Tier 1 -->
+            <div class="pref-col" id="prefCol1">
+              <div class="pref-col-head">
+                <div class="pref-col-title">
+                  <span class="pref-col-name">Tier 1 — Category</span>
+                  <span class="pref-col-count" id="prefCount1"></span>
+                </div>
+                <div class="pref-col-actions">
+                  <button class="pref-col-act" onclick="prefSelectAll(1)">Select All</button>
+                  <button class="pref-col-act" onclick="prefClearAll(1)">Clear</button>
+                </div>
+                <input class="pref-search" id="prefSearch1" placeholder="Filter categories…" oninput="renderPrefCol(1)">
+              </div>
+              <div class="pref-list" id="prefList1"></div>
+            </div>
+            <!-- Col 2: Tier 2 -->
+            <div class="pref-col" id="prefCol2">
+              <div class="pref-col-head">
+                <div class="pref-col-title">
+                  <span class="pref-col-name">Tier 2 — Model</span>
+                  <span class="pref-col-count" id="prefCount2"></span>
+                </div>
+                <div class="pref-col-actions">
+                  <button class="pref-col-act" onclick="prefSelectAll(2)">Select All</button>
+                  <button class="pref-col-act" onclick="prefClearAll(2)">Clear</button>
+                </div>
+                <input class="pref-search" id="prefSearch2" placeholder="Filter models…" oninput="renderPrefCol(2)">
+              </div>
+              <div class="pref-list" id="prefList2"></div>
+            </div>
+            <!-- Col 3: Tier 3 -->
+            <div class="pref-col" id="prefCol3">
+              <div class="pref-col-head">
+                <div class="pref-col-title">
+                  <span class="pref-col-name">Tier 3 — Sub-component</span>
+                  <span class="pref-col-count" id="prefCount3"></span>
+                </div>
+                <div class="pref-col-actions">
+                  <button class="pref-col-act" onclick="prefSelectAll(3)">Select All</button>
+                  <button class="pref-col-act" onclick="prefClearAll(3)">Clear</button>
+                </div>
+                <input class="pref-search" id="prefSearch3" placeholder="Filter sub-components…" oninput="renderPrefCol(3)">
+              </div>
+              <div class="pref-list" id="prefList3"></div>
+            </div>
+          </div>
+
+          <!-- Selection tray -->
+          <div class="pref-tray">
+            <div class="pref-tray-label">Selected tiles (<span id="prefTrayCount">0</span>)</div>
+            <div class="pref-tray-chips" id="prefTrayChips"><span class="pref-tray-empty">No tiles selected — choose items above to pin them to your dashboard.</span></div>
+          </div>
+
+          <!-- Footer -->
+          <div class="pref-footer">
+            <span class="pref-footer-info" id="prefFooterInfo"></span>
+            <div style="display:flex;gap:10px;">
+              <button class="md-btn-text" onclick="prefResetAll()">Reset to Default</button>
+              <button class="md-btn-outlined" onclick="closePrefModal()">Cancel</button>
+              <button class="md-btn-filled" onclick="applyPrefModal()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span> Apply</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="cards-grid" id="cardsGrid"></div>
+    </div>
+
+    <!-- TABLE VIEW (record grid · full CRUD) -->
+    <div id="tableView" style="display:none">
+      <div class="table-toolbar">
+        <span class="table-records-meta" id="recordsMeta"></span>
+        <button class="md-btn-outlined" onclick="startAddRecord()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span> Add Record</button>
+      </div>
+      <div id="agTableGrid" class="ag-theme-alpine-dark" style="width:100%;height:560px;"></div>
+    </div>
+
+
+  </div><!-- /content -->
+  </div><!-- /dashboardPage -->
+
+  <!-- SUB-ITEM MANAGEMENT PAGE -->
+  <div id="categoriesPage" style="display:none;padding:28px 32px;width:100%;">
+    <div style="max-width:1080px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:22px;font-weight:500;color:var(--md-text);">Sub-item Management</div>
+          <div style="font-size:13px;color:var(--md-text-low);margin-top:3px;">Add, rename and delete categories, models, sub-components, roles and nodes</div>
+        </div>
+        <button class="md-btn filled" onclick="startAddCategory()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span> Add Category</button>
+      </div>
+      <div id="addCatForm" style="display:none;margin-bottom:16px;">
+        <div style="background:var(--md-surface);border:1px solid var(--md-primary);border-radius:4px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:600;color:var(--md-primary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">New Category</div>
+          <div class="add-inline-row">
+            <input class="add-inline-input" id="newCatName" placeholder="Category name e.g. Drones" onkeydown="if(event.key==='Enter')saveNewCategory()">
+            <button class="add-inline-btn" onclick="saveNewCategory()">Add</button>
+            <button class="add-inline-cancel" onclick="cancelAddCategory()">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="sim-grid">
+        <div>
+          <div class="sim-section-label">Equipment structure</div>
+          <div id="catList"></div>
+        </div>
+        <div>
+          <div class="sim-section-label">Master lists</div>
+          <div id="masterLists"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+
+
+<!-- STATUS UPDATE MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalTitle">Update Status</div>
+        <div class="modal-subtitle" id="modalSubtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span></button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Override banner — shown only for model/category, hidden for sub-components -->
+      <div id="overrideBanner" style="display:none;background:var(--md-surface2);border:1px solid var(--md-outline-var);border-radius:4px;padding:10px 12px;margin-bottom:14px;font-size:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="color:var(--md-text-med);margin-bottom:5px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:500;">Auto-calculated (Worst Status Wins)</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="overrideAutoStatus"></span>
+              <span style="color:var(--md-text-low);font-size:11px;">from sub-components</span>
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+            <input type="checkbox" id="overrideToggle" onchange="toggleOverride()"
+              style="width:15px;height:15px;accent-color:var(--md-primary);cursor:pointer;">
+            <span style="font-size:12px;font-weight:500;color:var(--md-text);">Manual override</span>
+          </label>
+        </div>
+        <div id="overrideNote" style="display:none;margin-top:8px;font-size:11px;color:var(--md-primary);">
+          Override active — auto-calculation is bypassed for this item.
+        </div>
+      </div>
+
+      <div class="form-label">Serviceability Status</div>
+      <div class="status-options" id="statusOptions"></div>
+
+      <div class="remarks-section">
+        <div class="form-label" id="remarksLabel">Defect Remarks</div>
+        <div id="remarksList"></div>
+        <button class="add-remark-btn" onclick="addRemark()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span> Add Remark</button>
+        <div class="validation-msg" id="validMsg">At least one defect remark is required for Limitations, Under Maintenance, and Unserviceable statuses.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="md-btn tonal" onclick="closeModal()">Cancel</button>
+      <button class="md-btn filled" onclick="saveStatus()">Save Status</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script>
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+
+const STATUSES = [
+  { key:'serviceable',   label:'Serviceable',       desc:'Fully operational, ready for use',         color:'var(--s-green)',  cls:'serviceable'   },
+  { key:'limitations',   label:'Limitations',        desc:'Usable but has known defects',             color:'var(--s-yellow)', cls:'limitations'   },
+  { key:'maintenance',   label:'Under Maintenance',  desc:'Currently being repaired / serviced',      color:'var(--s-grey)',   cls:'maintenance'   },
+  { key:'unserviceable', label:'Unserviceable',       desc:'Cannot be used; repairable',              color:'var(--s-red)',    cls:'unserviceable' },
+  { key:'attrited',      label:'Attrited',            desc:'Permanently damaged, beyond repair',      color:'var(--s-black)',  cls:'attrited'      },
+];
+
+const SEVERITY = ['attrited','unserviceable','maintenance','limitations','serviceable'];
+
+// ── DATA ─────────────────────────────────────────────────────────────────────
+
+let data = [
+  { id:'phones', name:'Phones', models:[
+    { id:'iphone13', name:'iPhone 13', updatedAt:'10 May 26 08:32', subcomponents:[
+      { id:'iphone13-cam',    name:'Camera Lens',   status:'limitations',   remarks:['Minor scratch on lens coating','Auto-focus intermittently slow'], updatedAt:'10 May 26 08:32' },
+      { id:'iphone13-batt',   name:'Battery',       status:'serviceable',   remarks:[], updatedAt:'09 May 26 14:10' },
+      { id:'iphone13-screen', name:'Screen',        status:'unserviceable', remarks:['Cracked display, sent for replacement'], updatedAt:'10 May 26 07:55' },
+    ]},
+    { id:'iphone14', name:'iPhone 14', updatedAt:'09 May 26 16:00', subcomponents:[
+      { id:'iphone14-cam',    name:'Camera Lens',   status:'serviceable',   remarks:[], updatedAt:'09 May 26 16:00' },
+      { id:'iphone14-batt',   name:'Battery',       status:'serviceable',   remarks:[], updatedAt:'09 May 26 16:00' },
+      { id:'iphone14-screen', name:'Screen',        status:'serviceable',   remarks:[], updatedAt:'09 May 26 16:00' },
+    ]},
+    { id:'samsung', name:'Samsung S23', updatedAt:'08 May 26 09:20', subcomponents:[
+      { id:'samsung-cam',     name:'Camera Lens',   status:'maintenance',   remarks:['Lens assembly being cleaned'], updatedAt:'08 May 26 09:20' },
+      { id:'samsung-batt',    name:'Battery',       status:'limitations',   remarks:['Battery drains 20% faster than spec'], updatedAt:'08 May 26 09:20' },
+      { id:'samsung-screen',  name:'Screen',        status:'serviceable',   remarks:[], updatedAt:'08 May 26 09:20' },
+    ]},
+  ]},
+  { id:'laptops', name:'Laptops', models:[
+    { id:'mbp', name:'MacBook Pro 14"', updatedAt:'10 May 26 09:00', subcomponents:[
+      { id:'mbp-screen', name:'Display',   status:'serviceable',  remarks:[], updatedAt:'10 May 26 09:00' },
+      { id:'mbp-kb',     name:'Keyboard',  status:'serviceable',  remarks:[], updatedAt:'10 May 26 09:00' },
+      { id:'mbp-batt',   name:'Battery',   status:'limitations',  remarks:['Capacity at 79%, approaching replacement threshold'], updatedAt:'10 May 26 09:00' },
+    ]},
+    { id:'dell', name:'Dell XPS 15', updatedAt:'07 May 26 11:30', subcomponents:[
+      { id:'dell-screen', name:'Display',  status:'attrited',     remarks:['Cracked beyond economic repair'], updatedAt:'07 May 26 11:30' },
+      { id:'dell-kb',     name:'Keyboard', status:'serviceable',  remarks:[], updatedAt:'07 May 26 11:30' },
+      { id:'dell-batt',   name:'Battery',  status:'serviceable',  remarks:[], updatedAt:'07 May 26 11:30' },
+    ]},
+  ]},
+  { id:'radios', name:'Radios', models:[
+    { id:'moto', name:'Motorola DP4800', updatedAt:'10 May 26 06:45', subcomponents:[
+      { id:'moto-ant',  name:'Antenna',      status:'serviceable', remarks:[], updatedAt:'10 May 26 06:45' },
+      { id:'moto-batt', name:'Battery Pack', status:'serviceable', remarks:[], updatedAt:'10 May 26 06:45' },
+      { id:'moto-mic',  name:'Microphone',   status:'serviceable', remarks:[], updatedAt:'10 May 26 06:45' },
+    ]},
+    { id:'kenwood', name:'Kenwood TK-3401', updatedAt:'09 May 26 15:20', subcomponents:[
+      { id:'kw-ant',  name:'Antenna',      status:'limitations',  remarks:['Bent, range reduced by ~15%'], updatedAt:'09 May 26 15:20' },
+      { id:'kw-batt', name:'Battery Pack', status:'maintenance',  remarks:['Charging circuit under inspection'], updatedAt:'09 May 26 15:20' },
+      { id:'kw-mic',  name:'Microphone',   status:'serviceable',  remarks:[], updatedAt:'09 May 26 15:20' },
+    ]},
+  ]},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+
+// ── MASTER LISTS (Roles = departments, Nodes = zones) ──────────────────────────
+let ROLES = ['Dept ABC','Dept BD','Dept AAA','Dept DDD','Dept CCC'];
+let NODES = ['North','South','East','West'];
+
+// Migration: ensure every sub-component carries role / node / location
+(function seedRecordFields(){
+  const locs = ['Store room 1','Store room 2','Store room 3','Store room 4','Store room 5'];
+  let i = 0;
+  data.forEach(cat => cat.models.forEach(m => m.subcomponents.forEach(s => {
+    if (s.role     == null) s.role     = ROLES[i % ROLES.length];
+    if (s.node     == null) s.node     = NODES[i % NODES.length];
+    if (s.location == null) s.location = locs[i % locs.length];
+    i++;
+  })));
+})();
+
+let currentView   = 'summary';
+let filterCat     = 'all';
+let currentDepth  = 2;
+let currentRole   = 'admin';
+
+const roleConfigs = {
+  admin:          { name: 'Super Admin', initials: 'SA', role: 'super_admin', cats: null },
+  ground_phones:  { name: 'Personnel A', initials: 'PA', role: 'ground_personnel', cats: ['phones'] },
+  ground_laptops: { name: 'Personnel B', initials: 'PB', role: 'ground_personnel', cats: ['laptops'] },
+};
+
+// getDepth: used by renderTable — returns the global depth for a given category.
+// When per-category depth is introduced this can be swapped for a catDepth map lookup.
+function getDepth(catId) { return currentDepth; }
+
+// Custom tile selection — array of { type:'cat'|'model'|'sub', catId, modelId?, subId? }
+// null means "use default" (category-level tiles for all visible)
+let customTiles   = null;
+let customiseOpen = false;
+let pendingTiles  = new Set(); // tile keys selected in picker
+
+// Modal
+let modalTarget   = null;
+let selectedStatus = null;
+// remark numbering is DOM-based, no counter needed
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+
+function worstOf(statuses) {
+  for (const s of SEVERITY) if (statuses.includes(s)) return s;
+  return 'serviceable';
+}
+function modelStatus(model) {
+  if (model.override != null) return model.override;
+  return worstOf(model.subcomponents.map(s => s.status));
+}
+function catStatus(cat) {
+  if (cat.override != null) return cat.override;
+  return worstOf(cat.models.map(m => modelStatus(m)));
+}
+function modelAutoStatus(model) { return worstOf(model.subcomponents.map(s => s.status)); }
+function catAutoStatus(cat)     { return worstOf(cat.models.map(m => modelAutoStatus(m))); }
+
+function catStats(cat) {
+  const subs  = cat.models.flatMap(m => m.subcomponents);
+  const total = subs.length;
+  const serv  = subs.filter(s => s.status === 'serviceable').length;
+  const pct   = total ? Math.round(serv/total*100) : 0;
+  const counts = {};
+  SEVERITY.forEach(s => counts[s] = subs.filter(x => x.status === s).length);
+  return { total, serv, pct, counts };
+}
+
+function badgeHTML(status, isOverride=false) {
+  const s = STATUSES.find(x => x.key === status) || STATUSES[0];
+  const overridePill = isOverride
+    ? `<span class="mi" title="Manually overridden" style="font-size:14px;color:var(--md-primary);margin-left:3px;vertical-align:middle;"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></span>`
+    : '';
+  return `<span class="badge ${s.cls}"><span class="badge-dot"></span>${s.label}${overridePill}</span>`;
+}
+
+function stripHTML(counts, total) {
+  if (!total) return '';
+  const colors  = { serviceable:'#2BA84A', limitations:'#E7B400', maintenance:'#90A4AE', unserviceable:'#F35962', attrited:'#5A5A5A' };
+  // Serviceable first (left), then worst statuses to the right
+  const order   = ['serviceable','limitations','maintenance','unserviceable','attrited'];
+  return order.map(k => counts[k] > 0
+    ? `<div class="strip-seg" style="width:${(counts[k]/total*100).toFixed(1)}%;background:${colors[k]}"></div>` : '').join('');
+}
+
+function ts() {
+  const d = new Date();
+  return `${d.getDate().toString().padStart(2,'0')} ${d.toLocaleString('en',{month:'short'})} ${String(d.getFullYear()).slice(2)} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function getVisibleCats() {
+  const cfg  = roleConfigs[currentRole];
+  let cats   = cfg.cats ? data.filter(c => cfg.cats.includes(c.id)) : data;
+  if (filterCat !== 'all') cats = cats.filter(c => c.id === filterCat);
+  return cats;
+}
+
+// ── NAV / VIEW ────────────────────────────────────────────────────────────────
+
+// ── PAGE NAVIGATION ──────────────────────────────────────────────────────────
+
+function navigateTo(page, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  closeSidebar();
+
+  const dashEl = document.getElementById('dashboardPage');
+  const catEl  = document.getElementById('categoriesPage');
+
+  if (page === 'dashboard') {
+    dashEl.style.display = 'flex';
+    catEl.style.display  = 'none';
+  } else if (page === 'categories') {
+    dashEl.style.display = 'none';
+    catEl.style.display  = 'block';
+    renderCatPage();
+  }
+}
+
+// ── CATEGORIES CRUD ───────────────────────────────────────────────────────────
+
+let confirmCallback = null;
+
+function renderCatPage() {
+  const list = document.getElementById('catList');
+  renderMasterLists();
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m12 2-5.5 9h11z"/><circle cx="17.5" cy="17.5" r="4.5"/><path d="M3 13.5h8v8H3z"/></svg></span></div><div class="empty-text">No categories yet. Add one above.</div></div>';
+    return;
+  }
+  list.innerHTML = data.map(cat => catAccordionHTML(cat)).join('');
+}
+
+function catAccordionHTML(cat) {
+  const modelCount = cat.models.length;
+  const subCount   = cat.models.reduce((n,m) => n + m.subcomponents.length, 0);
+  return `
+    <div class="cat-accordion" id="acc-${cat.id}">
+      <div class="cat-row" onclick="toggleAcc('${cat.id}')">
+        <span class="cat-chevron mi" id="chev-${cat.id}"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>
+        <div style="flex:1">
+          <div class="cat-name" id="catname-${cat.id}">${cat.name}</div>
+          <div class="cat-meta">${modelCount} model${modelCount!==1?'s':''} · ${subCount} sub-component${subCount!==1?'s':''}</div>
+        </div>
+        <div class="cat-actions" onclick="event.stopPropagation()">
+          <button class="icon-btn" title="Rename" onclick="startRenameCat('${cat.id}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button>
+          <button class="icon-btn danger" title="Delete" onclick="askDeleteCat('${cat.id}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span></button>
+        </div>
+      </div>
+      <div class="model-section" id="models-${cat.id}">
+        <div class="model-section-header">
+          <span class="model-section-label">Models</span>
+          <button class="icon-btn" title="Add model" onclick="startAddModel('${cat.id}')" style="font-size:13px;width:auto;height:auto;padding:3px 10px;border-radius:4px;white-space:nowrap;"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span> Add Model</button>
+        </div>
+        <div id="addModelForm-${cat.id}" style="display:none;margin-bottom:8px;">
+          <div class="add-inline-row">
+            <input class="add-inline-input" id="newModelInput-${cat.id}" placeholder="Model name (e.g. iPhone 15)"
+              onkeydown="if(event.key==='Enter')saveNewModel('${cat.id}')">
+            <button class="add-inline-btn" onclick="saveNewModel('${cat.id}')">Add</button>
+            <button class="add-inline-cancel" onclick="cancelAddModel('${cat.id}')">Cancel</button>
+          </div>
+        </div>
+        ${cat.models.map(m => modelItemHTML(cat.id, m)).join('')}
+        ${cat.models.length===0 ? '<div style="font-size:12px;color:var(--md-text-low);padding:4px 0 8px;font-style:italic;">No models yet.</div>' : ''}
+      </div>
+    </div>`;
+}
+
+function modelItemHTML(catId, model) {
+  const subCount = model.subcomponents.length;
+  return `
+    <div class="model-item" id="model-item-${model.id}">
+      <div class="model-row-crud" onclick="toggleModel('${model.id}')">
+        <span class="model-chevron mi" id="mchev-${model.id}"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>
+        <span class="model-name-crud" id="mname-${model.id}">${model.name}</span>
+        <span class="model-meta-crud">${subCount} sub</span>
+        <div style="display:flex;gap:4px;flex-shrink:0;" onclick="event.stopPropagation()">
+          <button class="icon-btn" style="width:26px;height:26px;font-size:13px;" title="Rename" onclick="startRenameModel('${catId}','${model.id}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button>
+          <button class="icon-btn danger" style="width:26px;height:26px;font-size:13px;" title="Delete" onclick="askDeleteModel('${catId}','${model.id}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span></button>
+        </div>
+      </div>
+      <div class="sub-section" id="subs-${model.id}">
+        <div class="sub-section-header">
+          <span class="sub-section-label">Sub-components</span>
+          <button class="icon-btn" onclick="startAddSub('${catId}','${model.id}')" style="font-size:12px;width:auto;height:auto;padding:3px 10px;border-radius:4px;white-space:nowrap;"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span> Add Sub-component</button>
+        </div>
+        <div id="addSubForm-${model.id}" style="display:none;margin-bottom:6px;">
+          <div class="add-inline-row">
+            <input class="add-inline-input" id="newSubInput-${model.id}" placeholder="Sub-component name (e.g. Battery)"
+              onkeydown="if(event.key==='Enter')saveNewSub('${catId}','${model.id}')">
+            <button class="add-inline-btn" onclick="saveNewSub('${catId}','${model.id}')">Add</button>
+            <button class="add-inline-cancel" onclick="cancelAddSub('${model.id}')">Cancel</button>
+          </div>
+        </div>
+        ${model.subcomponents.map(s => subItemHTML(catId, model.id, s)).join('')}
+        ${model.subcomponents.length===0 ? '<div style="font-size:11px;color:var(--md-text-low);padding:2px 0 6px;font-style:italic;">No sub-components yet.</div>' : ''}
+      </div>
+    </div>`;
+}
+
+function subItemHTML(catId, modelId, sub) {
+  return `
+    <div class="sub-item" id="sub-item-${sub.id}">
+      <span class="sub-item-name" id="subname-${sub.id}">${sub.name}</span>
+      <div style="display:flex;gap:4px;" onclick="event.stopPropagation()">
+        <button class="icon-btn" style="width:24px;height:24px;font-size:12px;" title="Rename" onclick="startRenameSub('${catId}','${modelId}','${sub.id}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button>
+        <button class="icon-btn danger" style="width:24px;height:24px;font-size:12px;" title="Delete" onclick="askDeleteSub('${catId}','${modelId}','${sub.id}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span></button>
+      </div>
+    </div>`;
+}
+
+// ── Toggle expand/collapse ────────────────────────────────────────────────────
+
+function toggleAcc(catId) {
+  const sec  = document.getElementById(`models-${catId}`);
+  const chev = document.getElementById(`chev-${catId}`);
+  const open = sec.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+function toggleModel(modelId) {
+  const sec  = document.getElementById(`subs-${modelId}`);
+  const chev = document.getElementById(`mchev-${modelId}`);
+  const open = sec.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+// ── Add Category ─────────────────────────────────────────────────────────────
+
+function startAddCategory() {
+  document.getElementById('addCatForm').style.display = '';
+  document.getElementById('newCatName').value = '';
+  document.getElementById('newCatName').focus();
+}
+function cancelAddCategory() { document.getElementById('addCatForm').style.display = 'none'; }
+function saveNewCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  if (!name) return;
+  const id = 'cat-' + Date.now();
+  data.push({ id, name, models:[] });
+  cancelAddCategory();
+  syncFilterDropdown();
+  renderCatPage();
+  showToast(`Category "${name}" added`);
+}
+
+// ── Add Model ─────────────────────────────────────────────────────────────────
+
+function startAddModel(catId) {
+  document.getElementById(`addModelForm-${catId}`).style.display = '';
+  document.getElementById(`newModelInput-${catId}`).focus();
+}
+function cancelAddModel(catId) { document.getElementById(`addModelForm-${catId}`).style.display = 'none'; }
+function saveNewModel(catId) {
+  const input = document.getElementById(`newModelInput-${catId}`);
+  const name  = input.value.trim();
+  if (!name) return;
+  const cat = data.find(c => c.id === catId);
+  if (!cat) return;
+  const id = 'model-' + Date.now();
+  cat.models.push({ id, name, subcomponents:[], updatedAt: ts() });
+  cancelAddModel(catId);
+  renderCatPage();
+  // Re-open accordion
+  setTimeout(() => {
+    const sec = document.getElementById(`models-${catId}`);
+    const chev = document.getElementById(`chev-${catId}`);
+    if (sec && !sec.classList.contains('open')) { sec.classList.add('open'); chev?.classList.add('open'); }
+  }, 10);
+  showToast(`Model "${name}" added`);
+}
+
+// ── Add Sub-component ─────────────────────────────────────────────────────────
+
+function startAddSub(catId, modelId) {
+  document.getElementById(`addSubForm-${modelId}`).style.display = '';
+  document.getElementById(`newSubInput-${modelId}`).focus();
+}
+function cancelAddSub(modelId) { document.getElementById(`addSubForm-${modelId}`).style.display = 'none'; }
+function saveNewSub(catId, modelId) {
+  const input = document.getElementById(`newSubInput-${modelId}`);
+  const name  = input.value.trim();
+  if (!name) return;
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  if (!model) return;
+  const id = 'sub-' + Date.now();
+  model.subcomponents.push({ id, name, status:'serviceable', remarks:[], updatedAt: ts() });
+  cancelAddSub(modelId);
+  renderCatPage();
+  setTimeout(() => {
+    const sec = document.getElementById(`subs-${modelId}`);
+    const chev = document.getElementById(`mchev-${modelId}`);
+    if (sec && !sec.classList.contains('open')) { sec.classList.add('open'); chev?.classList.add('open'); }
+    const accSec = document.getElementById(`models-${catId}`);
+    const accChev = document.getElementById(`chev-${catId}`);
+    if (accSec && !accSec.classList.contains('open')) { accSec.classList.add('open'); accChev?.classList.add('open'); }
+  }, 10);
+  showToast(`Sub-component "${name}" added`);
+}
+
+// ── Rename ────────────────────────────────────────────────────────────────────
+
+function startRenameCat(catId) {
+  const cat     = data.find(c => c.id === catId);
+  const nameEl  = document.getElementById(`catname-${catId}`);
+  nameEl.innerHTML = `<input class="edit-inline-input" id="renameCat-${catId}" value="${cat.name}"
+    onkeydown="if(event.key==='Enter')saveRenameCat('${catId}');if(event.key==='Escape')renderCatPage();"
+    onclick="event.stopPropagation()">
+    <button class="add-inline-btn" style="margin-left:6px;font-size:11px;padding:4px 10px;" onclick="event.stopPropagation();saveRenameCat('${catId}')">Save</button>`;
+  document.getElementById(`renameCat-${catId}`)?.focus();
+}
+function saveRenameCat(catId) {
+  const val = document.getElementById(`renameCat-${catId}`)?.value.trim();
+  if (!val) return;
+  const cat = data.find(c => c.id === catId);
+  if (cat) cat.name = val;
+  syncFilterDropdown();
+  renderCatPage();
+  showToast(`Renamed to "${val}"`);
+}
+
+function startRenameModel(catId, modelId) {
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  const el    = document.getElementById(`mname-${modelId}`);
+  el.innerHTML = `<input class="edit-inline-input" id="renameM-${modelId}" value="${model.name}"
+    onkeydown="if(event.key==='Enter')saveRenameModel('${catId}','${modelId}');if(event.key==='Escape')renderCatPage();"
+    onclick="event.stopPropagation()">
+    <button class="add-inline-btn" style="margin-left:6px;font-size:11px;padding:4px 10px;" onclick="event.stopPropagation();saveRenameModel('${catId}','${modelId}')">Save</button>`;
+  document.getElementById(`renameM-${modelId}`)?.focus();
+}
+function saveRenameModel(catId, modelId) {
+  const val   = document.getElementById(`renameM-${modelId}`)?.value.trim();
+  if (!val) return;
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  if (model) model.name = val;
+  renderCatPage();
+  showToast(`Renamed to "${val}"`);
+}
+
+function startRenameSub(catId, modelId, subId) {
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  const sub   = model?.subcomponents.find(s => s.id === subId);
+  const el    = document.getElementById(`subname-${subId}`);
+  el.innerHTML = `<input class="edit-inline-input" id="renameS-${subId}" value="${sub.name}"
+    onkeydown="if(event.key==='Enter')saveRenameSub('${catId}','${modelId}','${subId}');if(event.key==='Escape')renderCatPage();"
+    onclick="event.stopPropagation()">
+    <button class="add-inline-btn" style="margin-left:6px;font-size:11px;padding:4px 10px;" onclick="event.stopPropagation();saveRenameSub('${catId}','${modelId}','${subId}')">Save</button>`;
+  document.getElementById(`renameS-${subId}`)?.focus();
+}
+function saveRenameSub(catId, modelId, subId) {
+  const val   = document.getElementById(`renameS-${subId}`)?.value.trim();
+  if (!val) return;
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  const sub   = model?.subcomponents.find(s => s.id === subId);
+  if (sub) sub.name = val;
+  renderCatPage();
+  showToast(`Renamed to "${val}"`);
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+function askDeleteCat(catId) {
+  const cat = data.find(c => c.id === catId);
+  openConfirm(
+    `Delete category "${cat.name}"?`,
+    `This will permanently remove "${cat.name}" and all its models and sub-components.`,
+    () => {
+      data = data.filter(c => c.id !== catId);
+      syncFilterDropdown();
+      renderCatPage();
+      showToast(`Category deleted`);
+    }
+  );
+}
+
+function askDeleteModel(catId, modelId) {
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  openConfirm(
+    `Delete model "${model.name}"?`,
+    `This will remove "${model.name}" and all its sub-components from "${cat.name}".`,
+    () => {
+      cat.models = cat.models.filter(m => m.id !== modelId);
+      renderCatPage();
+      showToast(`Model deleted`);
+    }
+  );
+}
+
+function askDeleteSub(catId, modelId, subId) {
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  const sub   = model?.subcomponents.find(s => s.id === subId);
+  openConfirm(
+    `Delete sub-component "${sub.name}"?`,
+    `This will remove "${sub.name}" from "${model.name}".`,
+    () => {
+      model.subcomponents = model.subcomponents.filter(s => s.id !== subId);
+      renderCatPage();
+      showToast(`Sub-component deleted`);
+    }
+  );
+}
+
+// ── Confirm dialog ────────────────────────────────────────────────────────────
+
+function openConfirm(title, body, onOk) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmBody').textContent  = body;
+  confirmCallback = onOk;
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+function confirmOk() {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+}
+
+// ── Sync filter dropdown after data changes ───────────────────────────────────
+
+function syncFilterDropdown() {
+  const sel = document.getElementById('filterCategory');
+  const current = sel.value;
+  sel.innerHTML = '<option value="all">All Categories</option>' +
+    data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  // Restore selection if still valid, else reset
+  if (data.find(c => c.id === current)) sel.value = current;
+  else { sel.value = 'all'; filterCat = 'all'; }
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('summaryView').style.display = v === 'summary' ? '' : 'none';
+  document.getElementById('tableView').style.display   = v === 'table'   ? '' : 'none';
+  document.getElementById('btnSummary').classList.toggle('active', v === 'summary');
+  document.getElementById('btnTable').classList.toggle('active', v === 'table');
+  const depth = document.getElementById('depthControl');
+  if (depth) depth.style.display = v === 'summary' ? 'flex' : 'none';
+  render();
+}
+
+function setDepth(d) {
+  currentDepth = d;
+  [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.toggle('active', i === d));
+  render();
+}
+
+function applyFilter() {
+  filterCat = document.getElementById('filterCategory').value;
+  customTiles = null; // reset custom tiles when filter changes
+  render();
+}
+
+function clearFilters() {
+  filterCat = 'all';
+  currentDepth = 2;
+  customTiles = null;
+  document.getElementById('filterCategory').value = 'all';
+  [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.toggle('active', i === 2));
+  render();
+}
+
+// ── CUSTOMISE PANEL ───────────────────────────────────────────────────────────
+
+function tileKey(type, catId, modelId, subId) {
+  return [type, catId, modelId||'', subId||''].join('|');
+}
+
+// ── MANAGE PREFERENCES MODAL ─────────────────────────────────────────────────
+
+let prefActiveParent = null; // cat.id currently focused in col1 for col2 drill
+let prefActiveModel  = null; // model.id currently focused in col2 for col3 drill
+
+function openPrefModal() {
+  pendingTiles = new Set(customTiles || []);
+  prefActiveParent = null;
+  prefActiveModel  = null;
+  // clear searches
+  ['prefSearch1','prefSearch2','prefSearch3'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  renderPrefCol(1);
+  renderPrefCol(2);
+  renderPrefCol(3);
+  renderPrefTray();
+  document.getElementById('prefOverlay').classList.add('open');
+}
+
+function closePrefModal() {
+  document.getElementById('prefOverlay').classList.remove('open');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('prefOverlay')) closePrefModal();
+}
+
+function applyPrefModal() {
+  customTiles = pendingTiles.size > 0 ? [...pendingTiles] : null;
+  closePrefModal();
+  render();
+}
+
+function prefResetAll() {
+  pendingTiles.clear();
+  prefActiveParent = null;
+  prefActiveModel  = null;
+  renderPrefCol(1); renderPrefCol(2); renderPrefCol(3);
+  renderPrefTray();
+}
+
+// ── COLUMN RENDERERS ──────────────────────────────────────────────────────────
+
+function prefItems(tier) {
+  const cats = getVisibleCats();
+  const q1 = (document.getElementById('prefSearch1')?.value || '').toLowerCase();
+  const q2 = (document.getElementById('prefSearch2')?.value || '').toLowerCase();
+  const q3 = (document.getElementById('prefSearch3')?.value || '').toLowerCase();
+  if (tier === 1) {
+    return cats.filter(c => !q1 || c.name.toLowerCase().includes(q1));
+  }
+  if (tier === 2) {
+    if (!prefActiveParent) {
+      // Show all models across all cats
+      let rows = [];
+      cats.forEach(c => c.models.forEach(m => rows.push({cat:c, model:m})));
+      return rows.filter(r => !q2 || r.model.name.toLowerCase().includes(q2) || r.cat.name.toLowerCase().includes(q2));
+    }
+    const cat = cats.find(c => c.id === prefActiveParent);
+    if (!cat) return [];
+    return cat.models
+      .filter(m => !q2 || m.name.toLowerCase().includes(q2))
+      .map(m => ({cat, model:m}));
+  }
+  if (tier === 3) {
+    let rows = [];
+    if (prefActiveModel) {
+      const cat = cats.find(c => c.models.some(m => m.id === prefActiveModel));
+      const model = cat?.models.find(m => m.id === prefActiveModel);
+      if (model) rows = model.subcomponents.map(s => ({cat, model, sub:s}));
+    } else if (prefActiveParent) {
+      const cat = cats.find(c => c.id === prefActiveParent);
+      if (cat) cat.models.forEach(m => m.subcomponents.forEach(s => rows.push({cat, model:m, sub:s})));
+    } else {
+      cats.forEach(c => c.models.forEach(m => m.subcomponents.forEach(s => rows.push({cat:c, model:m, sub:s}))));
+    }
+    return rows.filter(r => !q3 || r.sub.name.toLowerCase().includes(q3) || r.model.name.toLowerCase().includes(q3));
+  }
+  return [];
+}
+
+function renderPrefCol(tier) {
+  const list  = document.getElementById('prefList' + tier);
+  const count = document.getElementById('prefCount' + tier);
+  const col   = document.getElementById('prefCol'  + tier);
+  if (!list) return;
+
+  const items = prefItems(tier);
+  const SVG_CHECK = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+
+  // disable T2/T3 columns when depth < 2/3
+  if (tier === 2 && currentDepth < 2) { col.classList.add('pref-col-disabled'); list.innerHTML = '<div class="pref-empty">Not available at current depth.</div>'; return; }
+  if (tier === 3 && currentDepth < 3) { col.classList.add('pref-col-disabled'); list.innerHTML = '<div class="pref-empty">Not available at current depth.</div>'; return; }
+  col.classList.remove('pref-col-disabled');
+
+  if (!items.length) {
+    list.innerHTML = '<div class="pref-empty">No items found.</div>';
+    if (count) count.textContent = '';
+    return;
+  }
+
+  // how many in this tier are selected?
+  let selCount = 0;
+
+  let html = '';
+  if (tier === 1) {
+    items.forEach(cat => {
+      const key = tileKey('cat', cat.id);
+      const sel = pendingTiles.has(key);
+      const isActive = prefActiveParent === cat.id;
+      if (sel) selCount++;
+      html += `<div class="pref-item${sel?' selected':''}${isActive?' active-parent':''}" onclick="prefToggle1('${cat.id}')">
+        <div class="pref-check">${SVG_CHECK}</div>
+        <span class="pref-item-label">${cat.name}</span>
+        <span style="font-size:10px;color:var(--md-text-low);font-family:var(--mono);">${cat.models.length}M</span>
+      </div>`;
+    });
+  } else if (tier === 2) {
+    items.forEach(({cat, model}) => {
+      const key = tileKey('model', cat.id, model.id);
+      const sel = pendingTiles.has(key);
+      const isActive = prefActiveModel === model.id;
+      if (sel) selCount++;
+      const sub = prefActiveParent ? '' : `<span class="pref-item-sub">${cat.name}</span>`;
+      html += `<div class="pref-item${sel?' selected':''}${isActive?' active-parent':''}" onclick="prefToggle2('${cat.id}','${model.id}')">
+        <div class="pref-check">${SVG_CHECK}</div>
+        <span class="pref-item-label">${model.name}${sub}</span>
+        <span style="font-size:10px;color:var(--md-text-low);font-family:var(--mono);">${model.subcomponents.length}S</span>
+      </div>`;
+    });
+  } else {
+    items.forEach(({cat, model, sub}) => {
+      const key = tileKey('sub', cat.id, model.id, sub.id);
+      const sel = pendingTiles.has(key);
+      if (sel) selCount++;
+      const context = (prefActiveModel || prefActiveParent) ? '' : `<span class="pref-item-sub">${cat.name} › ${model.name}</span>`;
+      html += `<div class="pref-item${sel?' selected':''}" onclick="prefToggle3('${cat.id}','${model.id}','${sub.id}')">
+        <div class="pref-check">${SVG_CHECK}</div>
+        <span class="pref-item-label">${sub.name}${context}</span>
+      </div>`;
+    });
+  }
+
+  list.innerHTML = html;
+  if (count) count.textContent = selCount ? `${selCount} selected` : '';
+  updatePrefFooter();
+}
+
+function prefToggle1(catId) {
+  const key = tileKey('cat', catId);
+  if (pendingTiles.has(key)) pendingTiles.delete(key);
+  else pendingTiles.add(key);
+  // set as active parent to drill into col2
+  prefActiveParent = (prefActiveParent === catId) ? null : catId;
+  prefActiveModel  = null;
+  document.getElementById('prefSearch2').value = '';
+  document.getElementById('prefSearch3').value = '';
+  renderPrefCol(1); renderPrefCol(2); renderPrefCol(3);
+  renderPrefTray();
+}
+
+function prefToggle2(catId, modelId) {
+  const key = tileKey('model', catId, modelId);
+  if (pendingTiles.has(key)) pendingTiles.delete(key);
+  else pendingTiles.add(key);
+  prefActiveModel = (prefActiveModel === modelId) ? null : modelId;
+  document.getElementById('prefSearch3').value = '';
+  renderPrefCol(2); renderPrefCol(3);
+  renderPrefTray();
+}
+
+function prefToggle3(catId, modelId, subId) {
+  const key = tileKey('sub', catId, modelId, subId);
+  if (pendingTiles.has(key)) pendingTiles.delete(key);
+  else pendingTiles.add(key);
+  renderPrefCol(3);
+  renderPrefTray();
+}
+
+function prefSelectAll(tier) {
+  prefItems(tier).forEach(item => {
+    let key;
+    if (tier === 1) key = tileKey('cat', item.id);
+    else if (tier === 2) key = tileKey('model', item.cat.id, item.model.id);
+    else key = tileKey('sub', item.cat.id, item.model.id, item.sub.id);
+    pendingTiles.add(key);
+  });
+  renderPrefCol(tier); renderPrefTray();
+}
+
+function prefClearAll(tier) {
+  prefItems(tier).forEach(item => {
+    let key;
+    if (tier === 1) key = tileKey('cat', item.id);
+    else if (tier === 2) key = tileKey('model', item.cat.id, item.model.id);
+    else key = tileKey('sub', item.cat.id, item.model.id, item.sub.id);
+    pendingTiles.delete(key);
+  });
+  renderPrefCol(tier); renderPrefTray();
+}
+
+// ── TRAY ─────────────────────────────────────────────────────────────────────
+
+function renderPrefTray() {
+  const chips    = document.getElementById('prefTrayChips');
+  const countEl  = document.getElementById('prefTrayCount');
+  if (!chips) return;
+  countEl.textContent = pendingTiles.size;
+
+  if (!pendingTiles.size) {
+    chips.innerHTML = '<span class="pref-tray-empty">No tiles selected — choose items above to pin them to your dashboard.</span>';
+    return;
+  }
+
+  const cats = getVisibleCats();
+  let html = '';
+  pendingTiles.forEach(key => {
+    const [type, catId, modelId, subId] = key.split('|');
+    const cat   = cats.find(c => c.id === catId);
+    if (!cat) return;
+    const model = cat.models.find(m => m.id === modelId);
+    const sub   = model?.subcomponents.find(s => s.id === subId);
+    let label = '', tier = '';
+    if (type === 'cat')   { label = cat.name; tier = 'T1'; }
+    if (type === 'model') { label = `${cat.name} › ${model?.name}`; tier = 'T2'; }
+    if (type === 'sub')   { label = `${model?.name} › ${sub?.name}`; tier = 'T3'; }
+    html += `<span class="pref-tray-chip">
+      <span class="pref-tray-chip-tier">${tier}</span>${label}
+      <button class="pref-tray-chip-remove" onclick="prefRemoveTile('${key}')" title="Remove">\u00d7</button>
+    </span>`;
+  });
+  chips.innerHTML = html;
+  // update counts on cols
+  [1,2,3].forEach(t => {
+    const c = document.getElementById('prefCount' + t);
+    if (c) {
+      const items = prefItems(t);
+      let sel = 0;
+      items.forEach(item => {
+        let key;
+        if (t === 1) key = tileKey('cat', item.id);
+        else if (t === 2) key = tileKey('model', item.cat.id, item.model.id);
+        else key = tileKey('sub', item.cat.id, item.model.id, item.sub.id);
+        if (pendingTiles.has(key)) sel++;
+      });
+      c.textContent = sel ? `${sel} selected` : '';
+    }
+  });
+  updatePrefFooter();
+}
+
+function prefRemoveTile(key) {
+  pendingTiles.delete(key);
+  renderPrefCol(1); renderPrefCol(2); renderPrefCol(3);
+  renderPrefTray();
+}
+
+function updatePrefFooter() {
+  const el = document.getElementById('prefFooterInfo');
+  if (!el) return;
+  el.textContent = pendingTiles.size
+    ? `${pendingTiles.size} tile${pendingTiles.size !== 1 ? 's' : ''} selected across all tiers`
+    : 'No tiles selected — dashboard will show default category tiles';
+}
+
+// Legacy stubs (referenced nowhere new, kept to avoid console errors if cached)
+function toggleCustomise() { openPrefModal(); }
+function buildCustomisePicker() {}
+function chipHTML() {}
+function toggleTile() {}
+
+// ── RENDER SUMMARY ────────────────────────────────────────────────────────────
+
+function renderSummary() {
+  const grid = document.getElementById('cardsGrid');
+
+  // Build tile list
+  let tiles = [];
+  if (customTiles && customTiles.length > 0) {
+    customTiles.forEach(key => {
+      const [type, catId, modelId, subId] = key.split('|');
+      const cat   = data.find(c => c.id === catId);
+      if (!cat) return;
+      const model = cat.models.find(m => m.id === modelId);
+      const sub   = model?.subcomponents.find(s => s.id === subId);
+      tiles.push({ type, cat, model, sub, key });
+    });
+  } else {
+    // Default: category-level tiles for visible cats
+    getVisibleCats().forEach(cat => tiles.push({ type:'cat', cat }));
+  }
+
+  if (!tiles.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span></div><div class="empty-text">No tiles selected. Use Manage Preferences to add tiles.</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = tiles.map(tile => tileCardHTML(tile)).join('');
+}
+
+function tileCardHTML({ type, cat, model, sub }) {
+  // Determine what to show based on tile type
+  if (type === 'cat') {
+    const st    = catStatus(cat);
+    const stats = catStats(cat);
+    const pctColor = stats.pct >= 80 ? 'var(--s-green)' : stats.pct >= 50 ? 'var(--s-yellow)' : 'var(--s-red)';
+    let modelsHtml = '';
+    if (currentDepth >= 2) {
+      modelsHtml = `<div style="border-top:1px solid var(--md-outline-var)">` +
+        cat.models.map(m => {
+          const ms = modelStatus(m);
+          const mServ = m.subcomponents.filter(s => s.status === 'serviceable').length;
+          const mCounts = {}; SEVERITY.forEach(s => mCounts[s] = m.subcomponents.filter(x => x.status === s).length);
+          let subsHtml = '';
+          if (currentDepth >= 3) {
+            subsHtml = `<div style="padding:4px 14px 8px 24px;display:flex;flex-direction:column;gap:3px">` +
+              m.subcomponents.map(sub => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--md-outline-var);gap:6px" onclick="openModal('${cat.id}','${m.id}','${sub.id}','${sub.name.replace(/'/g,"\\'")}','${m.name.replace(/'/g,"\\'")}');event.stopPropagation()">
+                  <span style="font-size:12px;color:var(--md-text-med)">${sub.name}</span>
+                  <div style="display:flex;align-items:center;gap:6px">${badgeHTML(sub.status)}<button class="icon-btn" style="width:28px;height:28px;flex-shrink:0;" title="Edit" onclick="openModal('${cat.id}','${m.id}','${sub.id}','${sub.name.replace(/'/g,"\\'")}','${m.name.replace(/'/g,"\\'")}');event.stopPropagation()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button></div>
+                </div>`).join('') +
+              `</div>`;
+          }
+          return `
+            <div style="border-bottom:1px solid var(--md-outline-var);">
+              <div style="padding:9px 16px 7px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="openModal('${cat.id}','${m.id}',null,'${m.name.replace(/'/g,"\\'")}','${cat.name.replace(/'/g,"\\'")}');event.stopPropagation()">
+                <div>
+                  <div style="font-size:13px;font-weight:500;color:var(--md-text)">${m.name}</div>
+                  <div style="font-size:11px;color:var(--md-text-low);font-family:var(--mono)">${mServ}/${m.subcomponents.length} serviceable</div>
+                </div>
+                <button class="icon-btn" style="width:28px;height:28px;flex-shrink:0;" title="Edit" onclick="openModal('${cat.id}','${m.id}',null,'${m.name.replace(/'/g,"\\'")}','${cat.name.replace(/'/g,"\\'")}');event.stopPropagation()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button>
+              </div>
+              <div style="height:4px;display:flex;overflow:hidden;">${stripHTML(mCounts, m.subcomponents.length)}</div>
+            </div>${subsHtml}`
+        }).join('') + `</div>`;
+    }
+    return `<div class="dash-card">
+      <div class="dash-card-header"><div><div class="card-name">${cat.name}</div><div class="card-meta">${cat.models.length} models · ${stats.total} sub-components</div></div></div>
+      <div class="dash-card-stats">
+        <div>
+          <div style="display:flex;align-items:baseline;gap:7px;">
+            <div class="stat-num">${stats.serv}<span class="stat-den">/${stats.total}</span></div>
+            <div class="stat-pct" style="color:${pctColor}">${stats.pct}%</div>
+          </div>
+          <div class="stat-label">Serviceable</div>
+        </div>
+      </div>
+      <div class="status-strip">${stripHTML(stats.counts, stats.total)}</div>
+      ${modelsHtml}
+    </div>`;
+  }
+
+  if (type === 'model') {
+    const ms   = modelStatus(model);
+    const serv = model.subcomponents.filter(s => s.status === 'serviceable').length;
+    const total = model.subcomponents.length;
+    const pct  = total ? Math.round(serv/total*100) : 0;
+    const pctColor = pct >= 80 ? 'var(--s-green)' : pct >= 50 ? 'var(--s-yellow)' : 'var(--s-red)';
+    const counts = {};
+    SEVERITY.forEach(s => counts[s] = model.subcomponents.filter(x => x.status === s).length);
+    let subsHtml = '';
+    if (currentDepth >= 3) {
+      subsHtml = `<div style="border-top:1px solid var(--md-outline-var)">` +
+        model.subcomponents.map(sub => `
+          <div style="padding:9px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--md-outline-var);gap:8px;cursor:pointer" onclick="openModal('${cat.id}','${model.id}','${sub.id}','${sub.name.replace(/'/g,"\\'")}','${model.name.replace(/'/g,"\\'")}')">
+            <span style="font-size:13px;color:var(--md-text-med)">${sub.name}</span>
+            <div style="display:flex;align-items:center;gap:8px">${badgeHTML(sub.status)}<button class="icon-btn" style="width:28px;height:28px;flex-shrink:0;" title="Edit" onclick="openModal('${cat.id}','${model.id}','${sub.id}','${sub.name.replace(/'/g,"\\'")}','${model.name.replace(/'/g,"\\'")}');event.stopPropagation()"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button></div>
+          </div>`).join('') + `</div>`;
+    }
+    return `<div class="dash-card">
+      <div class="dash-card-header"><div><div class="card-name">${model.name}</div><div class="card-meta">${cat.name} · ${total} sub-components</div></div></div>
+      <div style="height:5px;display:flex;border-radius:0;overflow:hidden;margin-bottom:2px;">${stripHTML(counts, total)}</div>
+      <div class="dash-card-stats">
+        <div>
+          <div style="display:flex;align-items:baseline;gap:7px;">
+            <div class="stat-num">${serv}<span class="stat-den">/${total}</span></div>
+            <div class="stat-pct" style="color:${pctColor}">${pct}%</div>
+          </div>
+          <div class="stat-label">Serviceable</div>
+        </div>
+      </div>
+      ${subsHtml}
+    </div>`;
+  }
+
+  if (type === 'sub') {
+    // Single sub-component tile
+    return `<div class="dash-card">
+      <div class="dash-card-header">
+        <div>
+          <div class="card-name">${sub.name}</div>
+          <div class="card-meta" style="font-size:10px;color:var(--md-text-low)">${cat.name} › ${model.name}</div>
+        </div>
+        ${badgeHTML(sub.status)}
+      </div>
+      <div style="padding:10px 16px 14px">
+        ${sub.remarks.length
+          ? sub.remarks.map((r,i) => `<div style="font-size:12px;color:var(--md-text-med);margin-bottom:3px"><span style="font-family:var(--mono);font-size:10px;color:var(--md-text-low);margin-right:6px">Defect #${i+1}</span>${r}</div>`).join('')
+          : `<div style="font-size:12px;color:var(--md-text-low);font-style:italic">No remarks</div>`
+        }
+      </div>
+      <div style="padding:0 16px 14px;display:flex;justify-content:flex-end">
+        <button class="md-btn-sm" onclick="openModal('${cat.id}','${model.id}','${sub.id}','${sub.name.replace(/'/g,"\\'")}','${model.name.replace(/'/g,"\\'")}')">Edit Status</button>
+      </div>
+    </div>`;
+  }
+}
+
+// ── RENDER TABLE ──────────────────────────────────────────────────────────────
+
+// ── RENDER TABLE (flat record grid · full CRUD) ───────────────────────────────
+
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function escJs(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function optionsHTML(list, current){
+  const arr = (current != null && !list.includes(current)) ? [current, ...list] : list;
+  return arr.map(v => `<option value="${escAttr(v)}" ${v===current?'selected':''}>${escAttr(v)}</option>`).join('');
+}
+
+// ── AG GRID TABLE ─────────────────────────────────────────────────────────────
+let agGrid = null;
+
+function getStatusBadgeHtml(status) {
+  const map = {
+    serviceable:  { label:'Serviceable',  color:'#00e676', bg:'rgba(0,230,118,.15)' },
+    limitations:  { label:'Limitations',  color:'#ffd740', bg:'rgba(255,215,64,.15)' },
+    maintenance:  { label:'Maintenance',  color:'#ff6d00', bg:'rgba(255,109,0,.15)'  },
+    unserviceable:{ label:'Unserviceable',color:'#ff1744', bg:'rgba(255,23,68,.15)'  },
+    attrited:     { label:'Attrited',     color:'#9e9e9e', bg:'rgba(158,158,158,.15)'},
+  };
+  const s = map[status] || map.serviceable;
+  return `<span style="display:inline-block;padding:2px 9px;border-radius:3px;font-size:11px;font-weight:600;font-family:monospace;letter-spacing:.04em;background:${s.bg};color:${s.color};border:1px solid ${s.color}40;">${s.label}</span>`;
+}
+
+function buildAgRowData() {
+  const rows = [];
+  getVisibleCats().forEach(cat => {
+    cat.models.forEach(model => {
+      model.subcomponents.forEach(sub => {
+        rows.push({
+          _catId:   cat.id,
+          _modelId: model.id,
+          _subId:   sub.id,
+          category: cat.name,
+          model:    model.name,
+          sub:      sub.name,
+          role:     sub.role     || '',
+          qty:      sub.qty      ?? 1,
+          status:   sub.status   || 'serviceable',
+          node:     sub.node     || '',
+          location: sub.location || '',
+          remarks:  (sub.remarks || []).join(' | '),
+          _sub:     sub,
+          _cat:     cat,
+          _model:   model,
+        });
+      });
+    });
+  });
+  return rows;
+}
+
+function initAgGrid() {
+  const container = document.getElementById('agTableGrid');
+  if (!container) return;
+
+  const colDefs = [
+    { field:'category', headerName:'Category',      width:110, sortable:true, filter:true, resizable:true },
+    { field:'model',    headerName:'Model',          width:130, sortable:true, filter:true, resizable:true },
+    { field:'sub',      headerName:'Sub-component',  width:140, sortable:true, filter:true, resizable:true },
+    {
+      field:'role', headerName:'Role', width:120, resizable:true, filter:true,
+      cellRenderer: p => {
+        const sel = document.createElement('select');
+        sel.className = 'grid-select';
+        sel.style.cssText = 'width:100%;background:transparent;border:none;color:inherit;font-size:12px;cursor:pointer;outline:none;';
+        ROLES.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; if (r === p.value) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', () => setRecordField(p.data._subId, 'role', sel.value));
+        return sel;
+      }
+    },
+    {
+      field:'qty', headerName:'Qty', width:70, resizable:true, sortable:true,
+      cellRenderer: p => {
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.min = 0; inp.step = 1; inp.value = p.value;
+        inp.style.cssText = 'width:100%;background:transparent;border:none;color:inherit;font-size:12px;text-align:center;outline:none;';
+        inp.addEventListener('change', () => setRecordField(p.data._subId, 'qty', parseInt(inp.value)||1));
+        return inp;
+      }
+    },
+    {
+      field:'status', headerName:'Status', width:130, resizable:true, sortable:true, filter:true,
+      cellRenderer: p => {
+        const wrap = document.createElement('span');
+        wrap.innerHTML = getStatusBadgeHtml(p.value);
+        wrap.style.cursor = 'pointer';
+        const args = `'${p.data._catId}','${p.data._modelId}','${p.data._subId}'`;
+        wrap.addEventListener('click', () => openModal(p.data._catId, p.data._modelId, p.data._subId));
+        return wrap;
+      }
+    },
+    {
+      field:'node', headerName:'Node', width:100, resizable:true, filter:true,
+      cellRenderer: p => {
+        const sel = document.createElement('select');
+        sel.className = 'grid-select';
+        sel.style.cssText = 'width:100%;background:transparent;border:none;color:inherit;font-size:12px;cursor:pointer;outline:none;';
+        NODES.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; if (n === p.value) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', () => setRecordField(p.data._subId, 'node', sel.value));
+        return sel;
+      }
+    },
+    {
+      field:'location', headerName:'Location', width:120, resizable:true, filter:true,
+      editable: true,
+      cellStyle: { cursor:'text' },
+      valueSetter: p => { setRecordField(p.data._subId, 'location', p.newValue); p.data.location = p.newValue; return true; }
+    },
+    {
+      field:'remarks', headerName:'Remarks', flex:1, minWidth:160, resizable:true,
+      cellRenderer: p => {
+        const sub = p.data._sub;
+        if (!sub.remarks?.length) return '<span style="color:#666">—</span>';
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:6px;overflow:hidden;';
+        div.innerHTML = `<span style="font-size:11px;color:#aaa;flex-shrink:0;">#1</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escAttr(sub.remarks[0])}">${escAttr(sub.remarks[0])}</span>`;
+        if (sub.remarks.length > 1) {
+          const badge = document.createElement('span');
+          badge.className = 'remarks-count-badge';
+          badge.textContent = `+${sub.remarks.length-1} more`;
+          badge.style.flexShrink = '0';
+          badge.addEventListener('click', () => openModal(p.data._catId, p.data._modelId, p.data._subId));
+          div.appendChild(badge);
+        }
+        return div;
+      }
+    },
+    {
+      headerName:'', width:72, sortable:false, filter:false, resizable:false, pinned:'right',
+      cellRenderer: p => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:4px;height:100%;';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'icon-btn';
+        editBtn.title = 'Edit status & remarks';
+        editBtn.style.cssText = 'width:28px;height:28px;flex-shrink:0;';
+        editBtn.innerHTML = `<span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span>`;
+        editBtn.addEventListener('click', () => openModal(p.data._catId, p.data._modelId, p.data._subId));
+        const delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn danger';
+        delBtn.title = 'Delete record';
+        delBtn.style.cssText = 'width:28px;height:28px;flex-shrink:0;';
+        delBtn.innerHTML = `<span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span>`;
+        delBtn.addEventListener('click', () => askDeleteRecord(p.data._subId));
+        div.appendChild(editBtn);
+        div.appendChild(delBtn);
+        return div;
+      }
+    }
+  ];
+
+  const gridOptions = {
+    columnDefs: colDefs,
+    rowData: buildAgRowData(),
+    rowHeight: 40,
+    headerHeight: 38,
+    defaultColDef: { sortable: true, resizable: true },
+    animateRows: true,
+    suppressMovableColumns: false,
+    getRowId: p => p.data._subId,
+  };
+
+  if (agGrid) { agGrid.destroy(); agGrid = null; }
+  agGrid = agGridCommunity.createGrid(container, gridOptions);
+}
+
+function renderTable() {
+  if (!agGrid) {
+    initAgGrid();
+  } else {
+    agGrid.setGridOption('rowData', buildAgRowData());
+  }
+  const cats = getVisibleCats();
+  let count = 0;
+  cats.forEach(c => c.models.forEach(m => count += m.subcomponents.length));
+  const meta = document.getElementById('recordsMeta');
+  if (meta) meta.textContent = `${count} record${count !== 1 ? 's' : ''}`;
+}
+
+// Legacy stub — no longer needed but keep to avoid any reference errors
+function recordRowHTML() { return ''; }
+
+// ── Inline field edit ─────────────────────────────────────────────────────────
+function findSub(subId){
+  for (const cat of data) for (const m of cat.models){
+    const s = m.subcomponents.find(x => x.id === subId);
+    if (s) return { cat, model:m, sub:s };
+  }
+  return null;
+}
+function setRecordField(subId, field, value){
+  const hit = findSub(subId); if (!hit) return;
+  hit.sub[field] = value; hit.sub.updatedAt = ts();
+  const labels = { role:'Role', node:'Node', location:'Location', qty:'Qty' };
+  showToast(`${labels[field] || field} updated`);
+}
+
+// ── Add record ────────────────────────────────────────────────────────────────
+function startAddRecord(){
+  const cats = getVisibleCats().length ? getVisibleCats() : data;
+
+  // Populate category dropdown
+  const arCat = document.getElementById('arCat');
+  arCat.innerHTML = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  // Populate role / node / status dropdowns
+  document.getElementById('arRole').innerHTML   = optionsHTML(ROLES, ROLES[0]);
+  document.getElementById('arNode').innerHTML   = optionsHTML(NODES, NODES[0]);
+  document.getElementById('arStatus').innerHTML = STATUSES.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+
+  // Reset text fields
+  document.getElementById('arName').value = '';
+  document.getElementById('arLoc').value  = '';
+  document.getElementById('arQty').value  = '1';
+  ['arName','arCat','arModel','arLoc','arStatus'].forEach(id =>
+    document.getElementById(id)?.classList.remove('error')
+  );
+
+  arSyncModels();
+  document.getElementById('arOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('arName')?.focus(), 80);
+}
+function arHandleOverlay(e){
+  if (e.target === document.getElementById('arOverlay')) cancelAddRecord();
+}
+function arSyncModels(){
+  const cat = data.find(c => c.id === document.getElementById('arCat')?.value);
+  const sel = document.getElementById('arModel');
+  if (!sel) return;
+  sel.innerHTML = (cat?.models || []).map(m => `<option value="${m.id}">${m.name}</option>`).join('')
+    || `<option value="">— no models —</option>`;
+}
+function cancelAddRecord(){
+  document.getElementById('arOverlay').classList.remove('open');
+}
+function saveAddRecord(){
+  const catId   = document.getElementById('arCat')?.value;
+  const modelId = document.getElementById('arModel')?.value;
+  const nameEl  = document.getElementById('arName');
+  const name    = nameEl?.value.trim();
+  const qty     = parseInt(document.getElementById('arQty')?.value) || 1;
+  const role    = document.getElementById('arRole')?.value;
+  const node    = document.getElementById('arNode')?.value;
+  const loc     = document.getElementById('arLoc')?.value.trim();
+  const status  = document.getElementById('arStatus')?.value || 'serviceable';
+
+  // Validate
+  let valid = true;
+  if (!name){ nameEl?.classList.add('error'); nameEl?.focus(); valid = false; }
+  else nameEl?.classList.remove('error');
+
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  if (!model){ showToast('Pick a category and model first'); valid = false; }
+
+  if (!valid){ if (!name) showToast('Sub-component name is required'); return; }
+
+  model.subcomponents.push({ id:'sub-'+Date.now(), name, status, remarks:[], role, node, location:loc, qty, updatedAt: ts() });
+  cancelAddRecord();
+  renderTable();
+  showToast(`Record "${name}" added`);
+}
+
+// ── Delete record ─────────────────────────────────────────────────────────────
+function askDeleteRecord(subId){
+  const hit = findSub(subId); if (!hit) return;
+  openConfirm(
+    `Delete record "${hit.sub.name}"?`,
+    `This removes "${hit.sub.name}" from "${hit.model.name}" (${hit.cat.name}).`,
+    () => { hit.model.subcomponents = hit.model.subcomponents.filter(s => s.id !== subId); renderTable(); showToast('Record deleted'); }
+  );
+}
+
+// ── Master lists: Roles & Nodes ───────────────────────────────────────────────
+function listFor(kind){ return kind === 'role' ? ROLES : NODES; }
+function titleFor(kind){ return kind === 'role' ? 'Roles' : 'Nodes'; }
+function singularFor(kind){ return kind === 'role' ? 'Role' : 'Node'; }
+
+function renderMasterLists(){
+  const el = document.getElementById('masterLists');
+  if (!el) return;
+  el.innerHTML = masterPanelHTML('role') + masterPanelHTML('node');
+}
+function masterPanelHTML(kind){
+  const list = listFor(kind), title = titleFor(kind);
+  return `<div class="master-panel">
+    <div class="master-panel-head">
+      <span class="master-panel-title">${title}<span class="master-count">${list.length}</span></span>
+      <button class="icon-btn" title="Add ${singularFor(kind)}" onclick="startAddMaster('${kind}')"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span></button>
+    </div>
+    <div id="addMaster-${kind}" class="add-inline-row" style="display:none;padding:8px 10px 4px;">
+      <input class="add-inline-input" id="newMaster-${kind}" placeholder="${singularFor(kind)} name" onkeydown="if(event.key==='Enter')saveAddMaster('${kind}')">
+      <button class="add-inline-btn" onclick="saveAddMaster('${kind}')">Add</button>
+      <button class="add-inline-cancel" onclick="cancelAddMaster('${kind}')">Cancel</button>
+    </div>
+    <div class="master-list">
+      ${list.map((v,i) => masterItemHTML(kind, v, i)).join('') || `<div class="master-empty">None yet.</div>`}
+    </div>
+  </div>`;
+}
+function masterItemHTML(kind, value, i){
+  return `<div class="master-item" id="master-${kind}-${i}">
+    <span class="master-item-name">${value}</span>
+    <div class="master-item-actions">
+      <button class="icon-btn" style="width:26px;height:26px;font-size:12px;" title="Rename" onclick="renameMaster('${kind}',${i})"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span></button>
+      <button class="icon-btn danger" style="width:26px;height:26px;font-size:12px;" title="Delete" onclick="deleteMaster('${kind}',${i})"><span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span></button>
+    </div>
+  </div>`;
+}
+function startAddMaster(kind){ const f = document.getElementById(`addMaster-${kind}`); if (f){ f.style.display = 'flex'; document.getElementById(`newMaster-${kind}`)?.focus(); } }
+function cancelAddMaster(kind){ const f = document.getElementById(`addMaster-${kind}`); if (f){ f.style.display = 'none'; const i = document.getElementById(`newMaster-${kind}`); if (i) i.value = ''; } }
+function saveAddMaster(kind){
+  const inp = document.getElementById(`newMaster-${kind}`); const v = inp?.value.trim(); if (!v) return;
+  listFor(kind).push(v);
+  renderMasterLists(); showToast(`${singularFor(kind)} "${v}" added`);
+}
+function renameMaster(kind, i){
+  const list = listFor(kind);
+  const el = document.getElementById(`master-${kind}-${i}`);
+  el.querySelector('.master-item-name').innerHTML =
+    `<input class="edit-inline-input" id="rnMaster-${kind}-${i}" value="${list[i]}" onkeydown="if(event.key==='Enter')saveRenameMaster('${kind}',${i});if(event.key==='Escape')renderMasterLists();">`;
+  document.getElementById(`rnMaster-${kind}-${i}`)?.focus();
+}
+function saveRenameMaster(kind, i){
+  const v = document.getElementById(`rnMaster-${kind}-${i}`)?.value.trim(); if (!v) return;
+  const list = listFor(kind); const old = list[i]; list[i] = v;
+  data.forEach(c => c.models.forEach(m => m.subcomponents.forEach(s => {
+    if (kind === 'role' && s.role === old) s.role = v;
+    if (kind === 'node' && s.node === old) s.node = v;
+  })));
+  renderMasterLists(); showToast(`Renamed to "${v}"`);
+}
+function deleteMaster(kind, i){
+  const list = listFor(kind); const val = list[i];
+  openConfirm(
+    `Delete ${singularFor(kind).toLowerCase()} "${val}"?`,
+    `Existing records keep "${val}" until you change them.`,
+    () => { list.splice(i, 1); renderMasterLists(); showToast(`${singularFor(kind)} deleted`); }
+  );
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+
+function render() {
+  if (currentView === 'summary') renderSummary();
+  else renderTable();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+
+function openModal(catId, modelId, subId, name, parentName) {
+  modalTarget = { catId, modelId, subId };
+
+  document.getElementById('modalTitle').textContent = name;
+  document.getElementById('modalSubtitle').textContent = subId
+    ? `Sub-component · ${parentName} › ${name}`
+    : modelId ? `Model · ${parentName} › ${name}` : `Category · ${name}`;
+
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  const sub   = model?.subcomponents.find(s => s.id === subId);
+
+  const isSub = !!subId;
+  const autoStatus = isSub
+    ? sub.status
+    : modelId ? modelAutoStatus(model) : catAutoStatus(cat);
+  const existingOverride = isSub ? null : (modelId ? model.override : cat.override);
+  const curStatus = existingOverride != null ? existingOverride : autoStatus;
+  selectedStatus = curStatus;
+
+  // Render override banner separately (not inside statusOptions)
+  const bannerEl = document.getElementById('overrideBanner');
+  if (!isSub) {
+    const overrideActive = existingOverride != null;
+    bannerEl.style.display = 'block';
+    document.getElementById('overrideAutoStatus').innerHTML = badgeHTML(autoStatus);
+    document.getElementById('overrideToggle').checked = overrideActive;
+    document.getElementById('overrideNote').style.display = overrideActive ? 'block' : 'none';
+  } else {
+    bannerEl.style.display = 'none';
+  }
+
+  // Render status options cleanly — onclick always bound, locked via a flag
+  document.getElementById('statusOptions').innerHTML = STATUSES.map(s => `
+    <div class="status-opt ${s.cls} ${s.key === curStatus ? 'selected' : ''}"
+         onclick="selectStatus('${s.key}')">
+      <div class="status-swatch" style="background:${s.color}"></div>
+      <div class="status-opt-body">
+        <div class="status-opt-label">${s.label}</div>
+        <div class="status-opt-desc">${s.desc}</div>
+      </div>
+      <div class="status-opt-check"><div class="check-inner"></div></div>
+    </div>`).join('');
+
+  // Lock/unlock options based on override state
+  setStatusOptionsLocked(isSub ? false : existingOverride == null);
+
+  // Remarks
+  document.getElementById('remarksList').innerHTML = '';
+  const existingRemarks = sub ? sub.remarks : [];
+  if (existingRemarks.length > 0) {
+    existingRemarks.forEach(r => addRemark(r));
+  } else if (['limitations','maintenance','unserviceable'].includes(curStatus)) {
+    addRemark('');
+  }
+
+  updateRemarksLabel();
+  document.getElementById('validMsg').style.display = 'none';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function setStatusOptionsLocked(locked) {
+  document.getElementById('statusOptions').style.opacity = locked ? '0.4' : '1';
+  document.getElementById('statusOptions').style.pointerEvents = locked ? 'none' : '';
+}
+
+function toggleOverride() {
+  const checked = document.getElementById('overrideToggle').checked;
+  document.getElementById('overrideNote').style.display = checked ? 'block' : 'none';
+  setStatusOptionsLocked(!checked);
+
+  if (!checked) {
+    // Revert selected highlight to auto status
+    const { catId, modelId } = modalTarget;
+    const cat   = data.find(c => c.id === catId);
+    const model = cat?.models.find(m => m.id === modelId);
+    const auto  = modelId ? modelAutoStatus(model) : catAutoStatus(cat);
+    selectedStatus = auto;
+    document.querySelectorAll('.status-opt').forEach(el => {
+      const match = STATUSES.find(s => s.key === auto);
+      el.classList.toggle('selected', match ? el.classList.contains(match.cls) : false);
+    });
+  }
+}
+
+function selectStatus(key) {
+  selectedStatus = key;
+  document.querySelectorAll('.status-opt').forEach(el => {
+    const found = STATUSES.find(s => s.key === key); const isThis = found && el.classList.contains(found.cls);
+    el.classList.toggle('selected', isThis);
+  });
+  // Auto-add first remark box if status requires remarks
+  const list = document.getElementById('remarksList');
+  if (['limitations','maintenance','unserviceable'].includes(key) && list.children.length === 0) addRemark('');
+  updateRemarksLabel();
+}
+
+function updateRemarksLabel() {
+  const required = ['limitations','maintenance','unserviceable'].includes(selectedStatus);
+  document.getElementById('remarksLabel').innerHTML =
+    `Defect Remarks${required ? '<span class="req"> *Required</span>' : ' <span style="color:var(--md-text-low);font-weight:400;text-transform:none;font-size:11px">(optional)</span>'}`;
+}
+
+function addRemark(value = '', etr = '') {
+  const list = document.getElementById('remarksList');
+  const num  = list.querySelectorAll('.remark-row').length + 1;
+  const uid  = `rm-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+  const row  = document.createElement('div');
+  row.className = 'remark-row';
+  row.style.cssText = 'flex-direction:column;align-items:stretch;gap:0;margin-bottom:10px;';
+  const hasEtr = !!etr;
+  const etrPill = etr ? `<div class="etr-pill">\u231A ETR: ${formatEtr(etr)}</div>` : '';
+  row.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <div class="remark-label" style="padding-top:10px;min-width:72px;white-space:nowrap;">Defect <span>#${num}</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;">
+        <textarea class="remark-input" placeholder="Describe the defect or limitation\u2026">${value}</textarea>
+        <div class="etr-has-row">
+          <span class="etr-has-label">Has ETR?</span>
+          <span class="etr-opt ${hasEtr ? '' : 'active-no'}" id="etr-no-${uid}" onclick="setEtr('${uid}',false)">No</span>
+          <span class="etr-opt ${hasEtr ? 'active-yes' : ''}" id="etr-yes-${uid}" onclick="setEtr('${uid}',true)">Yes</span>
+        </div>
+        <div class="etr-picker ${hasEtr ? 'open' : ''}" id="etr-picker-${uid}">
+          <span class="etr-label">ETR</span>
+          <input class="etr-input" type="datetime-local" value="${etr}" id="etr-input-${uid}" title="Estimated Time to Repair">
+        </div>
+        ${etrPill}
+      </div>
+      <button class="remark-remove" onclick="removeRemark(this)" title="Remove">\u00d7</button>
+    </div>
+  `;
+  list.appendChild(row);
+  renumberRemarks();
+}
+
+function setEtr(uid, hasEtr) {
+  const picker = document.getElementById('etr-picker-' + uid);
+  const yesBtn = document.getElementById('etr-yes-' + uid);
+  const noBtn  = document.getElementById('etr-no-' + uid);
+  const input  = document.getElementById('etr-input-' + uid);
+  if (!picker) return;
+  if (hasEtr) {
+    picker.classList.add('open');
+    yesBtn?.classList.add('active-yes'); noBtn?.classList.remove('active-no');
+    setTimeout(() => input?.focus(), 50);
+  } else {
+    picker.classList.remove('open');
+    if (input) input.value = '';
+    noBtn?.classList.add('active-no'); yesBtn?.classList.remove('active-yes');
+    picker.closest('.remark-row')?.querySelector('.etr-pill')?.remove();
+  }
+}
+
+function removeRemark(btn) {
+  btn.closest('.remark-row').remove();
+  renumberRemarks();
+}
+
+function renumberRemarks() {
+  const rows = document.querySelectorAll('#remarksList .remark-row');
+  rows.forEach((row, i) => {
+    const label = row.querySelector('.remark-label');
+    if (label) label.innerHTML = `Defect <span>#${i + 1}</span>`;
+    // Show delete button on all rows (including first when there are multiple)
+    const btn = row.querySelector('.remark-remove');
+    if (btn) btn.style.display = rows.length > 1 ? '' : 'none';
+  });
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  modalTarget = null; selectedStatus = null;
+}
+
+function overlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function saveStatus() {
+  if (!modalTarget || !selectedStatus) return;
+
+  const remarkRows = [...document.querySelectorAll('#remarksList .remark-row')];
+  const remarks = remarkRows.map(row => {
+    const text = row.querySelector('.remark-input')?.value.trim() || '';
+    const etr  = row.querySelector('[id^="etr-input-"]')?.value || '';
+    return text ? (etr ? `${text} [ETR: ${formatEtr(etr)}]` : text) : null;
+  }).filter(Boolean);
+
+  if (['limitations','maintenance','unserviceable'].includes(selectedStatus) && remarks.length === 0) {
+    document.getElementById('validMsg').style.display = 'flex';
+    return;
+  }
+  document.getElementById('validMsg').style.display = 'none';
+
+  const now = ts();
+  const { catId, modelId, subId } = modalTarget;
+  const cat   = data.find(c => c.id === catId);
+  const model = cat?.models.find(m => m.id === modelId);
+  const sub   = model?.subcomponents.find(s => s.id === subId);
+
+  const overrideToggle = document.getElementById('overrideToggle');
+  const isOverride = overrideToggle ? overrideToggle.checked : true; // sub-components always direct
+
+  if (sub) {
+    // Sub-component: always direct edit
+    sub.status = selectedStatus; sub.remarks = remarks; sub.updatedAt = now;
+  } else if (model) {
+    if (isOverride) {
+      model.override = selectedStatus; // store override, sub-components untouched
+    } else {
+      delete model.override; // clear any existing override, revert to auto
+    }
+    model.updatedAt = now;
+  } else if (cat) {
+    if (isOverride) {
+      cat.override = selectedStatus; // store override, models/sub-components untouched
+    } else {
+      delete cat.override;
+    }
+  }
+
+  closeModal();
+  render();
+  showToast(`Status updated to "${STATUSES.find(s => s.key === selectedStatus)?.label}"`);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = '<span class="mi mi-sm" style="color:var(--s-green);flex-shrink:0;margin-right:6px"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span><span>' + msg + '</span>';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+// thead offset: topnav(52px) + secondary-bar(48px) = 100px
+
+render();
+
+// ── ROLE SWITCHING ────────────────────────────────────────────────────────────
+function switchRole(role) {
+  currentRole = role;
+  const cfg = roleConfigs[role];
+  const avatar = document.getElementById('userAvatar');
+  if (avatar) avatar.textContent = cfg.initials;
+  const sbAvatar = document.getElementById('sidebarAvatar');
+  if (sbAvatar) sbAvatar.textContent = cfg.initials;
+  const sbName = document.getElementById('sidebarUserName');
+  if (sbName) sbName.textContent = cfg.name;
+  const sbRole = document.getElementById('sidebarUserRole');
+  if (sbRole) sbRole.textContent = cfg.role;
+  // Refresh category filter options to match role
+  const sel = document.getElementById('filterCategory');
+  const catData = cfg.cats ? data.filter(c => cfg.cats.includes(c.id)) : data;
+  sel.innerHTML = '<option value="all">All Categories</option>' +
+    catData.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  filterCat = 'all';
+  render();
+}
+
+// ── SIDEBAR DRAWER ────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const isOpen = document.getElementById('sidebar').classList.contains('open');
+  isOpen ? closeSidebar() : openSidebar();
+}
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ── LIVE CLOCK ────────────────────────────────────────────────────────────────
+function updateClock() {
+  const el = document.getElementById('clockPill');
+  if (!el) return;
+  const d   = new Date();
+  const dd  = String(d.getDate()).padStart(2,'0');
+  const mon = d.toLocaleString('en',{month:'short'}).toUpperCase();
+  const yr  = d.getFullYear();
+  const hh  = String(d.getHours()).padStart(2,'0');
+  const mm  = String(d.getMinutes()).padStart(2,'0');
+  el.textContent = `${dd} ${mon} ${yr}  ${hh}:${mm}`;
+}
+updateClock();
+setInterval(updateClock, 10000);
+</script>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-overlay" id="confirmOverlay" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle">Delete item?</div>
+    <div class="confirm-body"  id="confirmBody">This action cannot be undone.</div>
+    <div class="confirm-actions">
+      <button class="md-btn tonal" onclick="closeConfirm()">Cancel</button>
+      <button class="md-btn" id="confirmOkBtn"
+        style="background:var(--s-red);color:#fff;" onclick="confirmOk()">Delete</button>
+    </div>
+  </div>
+</div>
+
+  <!-- ── ADD RECORD MODAL ── -->
+  <div class="ar-overlay" id="arOverlay" onclick="arHandleOverlay(event)">
+    <div class="ar-modal" id="arModal">
+
+      <div class="ar-header">
+        <div class="ar-header-left">
+          <span class="ar-header-title">Add New Record</span>
+          <span class="ar-header-sub">All fields marked <span style="color:var(--md-primary)">*</span> are required</span>
+        </div>
+        <button class="ar-close" onclick="cancelAddRecord()" title="Close"><span class="mi"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span></button>
+      </div>
+
+      <div class="ar-body">
+
+        <!-- Row 1: Hierarchy -->
+        <div>
+          <div class="ar-section-label">Equipment Hierarchy</div>
+          <div class="ar-row ar-row-3">
+            <div class="ar-field">
+              <span class="ar-label">Category <span class="ar-req">*</span></span>
+              <select class="ar-select" id="arCat" onchange="arSyncModels()"></select>
+            </div>
+            <div class="ar-field">
+              <span class="ar-label">Model <span class="ar-req">*</span></span>
+              <select class="ar-select" id="arModel"></select>
+            </div>
+            <div class="ar-field">
+              <span class="ar-label">Sub-component <span class="ar-req">*</span></span>
+              <input class="ar-input" id="arName" placeholder="e.g. Battery"
+                onkeydown="if(event.key==='Enter')saveAddRecord()">
+            </div>
+          </div>
+        </div>
+
+        <hr class="ar-divider">
+
+        <!-- Row 2: Assignment -->
+        <div>
+          <div class="ar-section-label">Assignment</div>
+          <div class="ar-row ar-row-4">
+            <div class="ar-field">
+              <span class="ar-label">Role</span>
+              <select class="ar-select" id="arRole"></select>
+            </div>
+            <div class="ar-field">
+              <span class="ar-label">Node</span>
+              <select class="ar-select" id="arNode"></select>
+            </div>
+            <div class="ar-field">
+              <span class="ar-label">Location</span>
+              <input class="ar-input" id="arLoc" placeholder="e.g. Store room 1">
+            </div>
+            <div class="ar-field">
+              <span class="ar-label">Qty</span>
+              <input class="ar-input" id="arQty" type="number" min="1" value="1">
+            </div>
+          </div>
+        </div>
+
+        <hr class="ar-divider">
+
+        <!-- Row 3: Status -->
+        <div>
+          <div class="ar-section-label">Initial Status</div>
+          <div class="ar-row ar-row-2">
+            <div class="ar-field">
+              <span class="ar-label">Status <span class="ar-req">*</span></span>
+              <select class="ar-select" id="arStatus"></select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="ar-footer">
+        <button class="md-btn-outlined" onclick="cancelAddRecord()">Cancel</button>
+        <button class="md-btn-filled" onclick="saveAddRecord()">
+          <span class="mi mi-sm"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span> Add Record
+        </button>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
